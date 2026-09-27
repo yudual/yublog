@@ -34,6 +34,20 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // 针对管理后台路由，严禁任何 CDN 或代理缓存
+        source: "/admin/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, no-cache, must-revalidate, max-age=0",
+          },
+          {
+            key: "CDN-Cache-Control",
+            value: "no-store",
+          },
+        ],
+      },
+      {
         // 针对前台公开页面开启 CDN 边缘缓存（排除后台 /admin 与 API 路由）
         source: "/((?!api|admin|_next/static|_next/image).*)",
         headers: [

@@ -2,7 +2,8 @@ import type { MetadataRoute } from "next";
 import { getApiUrl } from "@/lib/api-fetch";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://yugold.top").replace(/\/+$/, "");
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const siteUrl = ((!envUrl || envUrl.includes("localhost")) ? "https://yugold.top" : envUrl).replace(/\/+$/, "");
   const now = new Date();
 
   // 基础静态路由

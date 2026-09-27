@@ -24,7 +24,8 @@ export async function generateMetadata(): Promise<Metadata> {
   let siteName = "YuBlog";
   let description = "Dual 的个人博客 · 朋友圈风格";
   let keywords = "";
-  let domain = process.env.NEXT_PUBLIC_SITE_URL || "https://yugold.top";
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+  let domain = (!envUrl || envUrl.includes("localhost")) ? "https://yugold.top" : envUrl;
   let ogImage = "";
   let faviconUrl = "";
   let ownerAvatar = "";
