@@ -31,6 +31,24 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        // 针对前台公开页面开启 CDN 边缘缓存（排除后台 /admin 与 API 路由）
+        source: "/((?!api|admin|_next/static|_next/image).*)",
+        headers: [
+          {
+            key: "CDN-Cache-Control",
+            value: "max-age=60",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+          },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {

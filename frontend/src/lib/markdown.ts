@@ -1,7 +1,47 @@
 import { Marked, type Token } from "marked";
-import hljs from "highlight.js";
+import hljs from "highlight.js/lib/core";
+import javascript from "highlight.js/lib/languages/javascript";
+import typescript from "highlight.js/lib/languages/typescript";
+import python from "highlight.js/lib/languages/python";
+import bash from "highlight.js/lib/languages/bash";
+import json from "highlight.js/lib/languages/json";
+import markdown from "highlight.js/lib/languages/markdown";
+import css from "highlight.js/lib/languages/css";
+import xml from "highlight.js/lib/languages/xml";
+import yaml from "highlight.js/lib/languages/yaml";
+import sql from "highlight.js/lib/languages/sql";
+import go from "highlight.js/lib/languages/go";
+import rust from "highlight.js/lib/languages/rust";
+import java from "highlight.js/lib/languages/java";
+import cpp from "highlight.js/lib/languages/cpp";
+import csharp from "highlight.js/lib/languages/csharp";
+import diff from "highlight.js/lib/languages/diff";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+import nginx from "highlight.js/lib/languages/nginx";
+import ini from "highlight.js/lib/languages/ini";
 import TurndownService from "turndown";
 import { parseFrontmatter, stripFrontmatter } from "./frontmatter";
+
+// 按需注册核心语言包，首屏 JS 体积削减 ~900KB
+hljs.registerLanguage("javascript", javascript);
+hljs.registerLanguage("typescript", typescript);
+hljs.registerLanguage("python", python);
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("json", json);
+hljs.registerLanguage("markdown", markdown);
+hljs.registerLanguage("css", css);
+hljs.registerLanguage("xml", xml);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("sql", sql);
+hljs.registerLanguage("go", go);
+hljs.registerLanguage("rust", rust);
+hljs.registerLanguage("java", java);
+hljs.registerLanguage("cpp", cpp);
+hljs.registerLanguage("csharp", csharp);
+hljs.registerLanguage("diff", diff);
+hljs.registerLanguage("dockerfile", dockerfile);
+hljs.registerLanguage("nginx", nginx);
+hljs.registerLanguage("ini", ini);
 
 /**
  * 跨浏览器安全剪贴板复制（支持非安全上下文 HTTP / 局域网 IP 降级回退）
@@ -87,20 +127,45 @@ function getLanguageLabel(lang: string): string {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
+const LANGUAGE_ALIAS_MAP: Record<string, string> = {
+  js: "javascript",
+  ts: "typescript",
+  jsx: "javascript",
+  tsx: "typescript",
+  py: "python",
+  sh: "bash",
+  shell: "bash",
+  zsh: "bash",
+  html: "xml",
+  svg: "xml",
+  yml: "yaml",
+  rs: "rust",
+  golang: "go",
+  cs: "csharp",
+  "c++": "cpp",
+  c: "cpp",
+  h: "cpp",
+  hpp: "cpp",
+  docker: "dockerfile",
+  md: "markdown",
+  toml: "ini",
+};
+
 /**
  * 将代码块包装为 macOS 风格结构：
  * 红黄绿圆点 + 语言标签 + 复制按钮 + 行号 + highlight.js 代码高亮
  */
 export function buildMacosCodeBlock(codeText: string, lang = "plaintext"): string {
   const trimmedLang = (lang || "plaintext").trim().toLowerCase();
-  const validLang = hljs.getLanguage(trimmedLang) ? trimmedLang : "";
+  const normalizedLang = LANGUAGE_ALIAS_MAP[trimmedLang] || trimmedLang;
+  const validLang = hljs.getLanguage(normalizedLang) ? normalizedLang : "";
 
   let highlighted = "";
   try {
     if (validLang) {
       highlighted = hljs.highlight(codeText, { language: validLang, ignoreIllegals: true }).value;
     } else {
-      highlighted = hljs.highlightAuto(codeText).value;
+      highlighted = escapeHtml(codeText);
     }
   } catch {
     highlighted = escapeHtml(codeText);

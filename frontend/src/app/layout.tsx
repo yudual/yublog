@@ -12,10 +12,11 @@ const API_URL = getApiUrl();
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   viewportFit: "cover",
-  themeColor: "#ffffff",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#191919" },
+  ],
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -23,9 +24,11 @@ export async function generateMetadata(): Promise<Metadata> {
   let siteName = "YuBlog";
   let description = "Dual 的个人博客 · 朋友圈风格";
   let keywords = "";
-  let domain = "";
+  let domain = process.env.NEXT_PUBLIC_SITE_URL || "https://yugold.top";
   let ogImage = "";
   let faviconUrl = "";
+  let ownerAvatar = "";
+  let ownerCover = "";
 
   try {
     const [settingsRes, ownerRes] = await Promise.all([
@@ -45,6 +48,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
     if (ownerRes.ok) {
       const owner = await ownerRes.json();
+      if (owner.avatar) ownerAvatar = owner.avatar;
+      if (owner.cover) ownerCover = owner.cover;
       // If site settings are at defaults, use owner's nickname/bio as fallback
       if (siteName === "YuBlog" && owner.nickname) siteName = `${owner.nickname} · YuBlog`;
       if (description === "Dual 的个人博客 · 朋友圈风格" && owner.bio) {
@@ -55,39 +60,70 @@ export async function generateMetadata(): Promise<Metadata> {
     // use defaults
   }
 
+  // 保证 description 丰满饱满，提升搜索引擎抓取与社交分享展现效果
+  const cleanDescription = (description || "").trim();
+  const finalDescription =
+    cleanDescription && cleanDescription.length > 8 && cleanDescription !== "Dual的博客"
+      ? cleanDescription
+      : "Dual 的个人空间与技术博客 · 记录思考、技术随笔与日常动态。";
+
+  // 社交分享卡片配图优先级：后台配图 -> 博主封面 -> 博主头像 -> 默认兜底图
+  const rawOgImage = ogImage || ownerCover || ownerAvatar || "/avatar-owner.svg";
+  const resolvedOgImage = rawOgImage.startsWith("http")
+    ? rawOgImage
+    : `${domain ? domain.replace(/\/+$/, "") : ""}${rawOgImage.startsWith("/") ? rawOgImage : `/${rawOgImage}`}`;
+
+  const cleanDomain = domain ? domain.replace(/\/+$/, "") : "https://yugold.top";
+
   const metadata: Metadata = {
-    title: siteName,
-    description,
+    title: {
+      default: siteName,
+      template: `%s · ${siteName}`,
+    },
+    description: finalDescription,
+    metadataBase: new URL(cleanDomain),
+    alternates: {
+      canonical: "/",
+    },
+    openGraph: {
+      title: siteName,
+      description: finalDescription,
+      url: cleanDomain,
+      siteName: siteName,
+      locale: "zh_CN",
+      type: "website",
+      images: [
+        {
+          url: resolvedOgImage,
+          alt: siteName,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: siteName,
+      description: finalDescription,
+      images: [resolvedOgImage],
+    },
   };
 
-  if (faviconUrl) {
-    const faviconFullUrl = faviconUrl.startsWith("http")
-      ? faviconUrl
-      : `${domain || ""}${faviconUrl}`;
-    metadata.icons = {
-      icon: faviconFullUrl,
-      shortcut: faviconFullUrl,
-      apple: faviconFullUrl,
-    };
-  }
+  const faviconFullUrl = faviconUrl
+    ? (faviconUrl.startsWith("http") ? faviconUrl : `${cleanDomain}${faviconUrl.startsWith("/") ? faviconUrl : `/${faviconUrl}`}`)
+    : "";
+
+  metadata.icons = {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      ...(faviconFullUrl ? [{ url: faviconFullUrl }] : [{ url: "/icon", type: "image/png" }]),
+    ],
+    shortcut: faviconFullUrl || "/favicon.ico",
+    apple: [
+      { url: "/apple-icon", sizes: "180x180", type: "image/png" },
+    ],
+  };
 
   if (keywords) {
     metadata.keywords = keywords.split(",").map((k) => k.trim()).filter(Boolean);
-  }
-
-  if (domain) {
-    metadata.metadataBase = new URL(domain);
-  }
-
-  if (ogImage) {
-    const ogImageUrl = ogImage.startsWith("http")
-      ? ogImage
-      : `${domain || ""}${ogImage}`;
-    metadata.openGraph = {
-      title: siteName,
-      description,
-      images: [{ url: ogImageUrl }],
-    };
   }
 
   return metadata;
@@ -129,13 +165,6 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <link
-          rel="preload"
-          href="/fonts/HarmonyOS_Sans_Regular.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
         {rssEnabled && (
           <link rel="alternate" type="application/rss+xml" title="RSS 订阅" href="/feed" />
         )}
