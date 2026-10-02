@@ -28,18 +28,27 @@ jobs:
             backend/pnpm-lock.yaml
             frontend/pnpm-lock.yaml
 
-      # 1. 编译后端
-      - name: Build Backend
+      # 1. 后端：安装 + 单元测试 + 类型检查 + 编译
+      - name: Test & Build Backend
         run: |
           cd backend
           pnpm install
+          pnpm test
+          npx tsc --noEmit
           pnpm build
 
-      # 2. 编译前端（生产 Standalone 独立产物）
-      - name: Build Frontend
+      # 2. 前端：安装 + Lint + 编译（生产 Standalone 独立产物）
+      # Lint 暂不阻塞构建：存量违规约百余处待分批清理，先在 CI 中暴露计数与趋势
+      - name: Lint Frontend
         run: |
           cd frontend
           pnpm install
+          pnpm lint
+        continue-on-error: true
+
+      - name: Build Frontend
+        run: |
+          cd frontend
           pnpm build
           cp -r .next/static .next/standalone/.next/static
           cp -r public .next/standalone/public
