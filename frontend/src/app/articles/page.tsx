@@ -45,8 +45,6 @@ export default async function ArticlesPage() {
       {/* 博客化文章列表主体 */}
       <div className="relative mx-auto w-full flex-1 flex flex-col max-w-5xl xl:max-w-6xl 2xl:max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
         <main className="relative w-full flex-1 flex flex-col">
-          {/* 系列合辑稳定入口：合辑卡片在信息流会沉底，这里保证始终可达 */}
-          <CollectionStrip />
           <PostList
             initialPosts={articlesData.data}
             initialHasMore={articlesData.hasMore}
@@ -54,6 +52,8 @@ export default async function ArticlesPage() {
             initialError={articlesData.error}
             type="article"
           />
+          {/* 系列合辑入口置于列表末尾：不打断文章流，同时保持合辑始终可达 */}
+          <CollectionStrip />
         </main>
       </div>
 

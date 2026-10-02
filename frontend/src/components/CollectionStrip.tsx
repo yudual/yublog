@@ -17,8 +17,8 @@ export default async function CollectionStrip() {
   if (collections.length === 0) return null;
 
   return (
-    <section aria-label="系列合辑" className="mb-6">
-      <div className="flex items-center justify-between px-1 pb-2.5">
+    <section aria-label="系列合辑" className="mt-10">
+      <div className="flex items-center justify-between px-1 pb-2.5 border-t border-neutral-200/60 dark:border-neutral-800/70 pt-6">
         <div className="flex items-center gap-1.5 text-[15px] font-semibold text-neutral-900 dark:text-neutral-100">
           <Layers className="h-4 w-4 text-neutral-400 dark:text-neutral-500" />
           <span>系列合辑</span>
