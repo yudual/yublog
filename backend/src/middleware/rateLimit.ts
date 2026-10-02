@@ -170,14 +170,20 @@ export const AUTH_REGISTER_IP_WINDOW = 60 * 60 * 1000;
 export const VIDEO_REFRESH_IP_LIMIT = 30;
 export const VIDEO_REFRESH_IP_WINDOW = 10 * 60 * 1000;
 
+/** 点赞限流参数：1 分钟内单 IP 最多 30 次点赞/取消点赞（防止恶意脚本无限刷赞打穿数据库） */
+export const LIKE_IP_LIMIT = 30;
+export const LIKE_IP_WINDOW = 60 * 1000;
+
 const authLoginWindow = new SlidingWindow();
 const authRegisterWindow = new SlidingWindow();
 const videoRefreshWindow = new SlidingWindow();
+const likeWindow = new SlidingWindow();
 
 const IP_RATE_RULES = {
   login: { window: authLoginWindow, limit: AUTH_LOGIN_IP_LIMIT, windowMs: AUTH_LOGIN_IP_WINDOW },
   register: { window: authRegisterWindow, limit: AUTH_REGISTER_IP_LIMIT, windowMs: AUTH_REGISTER_IP_WINDOW },
   "video-refresh": { window: videoRefreshWindow, limit: VIDEO_REFRESH_IP_LIMIT, windowMs: VIDEO_REFRESH_IP_WINDOW },
+  like: { window: likeWindow, limit: LIKE_IP_LIMIT, windowMs: LIKE_IP_WINDOW },
 } as const;
 
 export type IpRateKind = keyof typeof IP_RATE_RULES;

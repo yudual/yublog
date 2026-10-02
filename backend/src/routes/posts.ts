@@ -1160,6 +1160,16 @@ router.post(
     const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
     const ip = getClientIp(req);
 
+    // 点赞频率限制（防恶意脚本无限刷赞）
+    const rateCheck = checkIpRate("like", ip);
+    if (!rateCheck.allowed) {
+      res.status(429).json({
+        message: `点赞过于频繁，请稍候再试`,
+        retryAfter: rateCheck.retryAfter,
+      });
+      return;
+    }
+
     const identity = buildIdentity(userId, visitorId, normalizedEmail, ip);
     if (!identity) {
       res.status(400).json({ message: "无法识别访客身份（无 userId/visitorId/email/IP）" });
@@ -1250,6 +1260,16 @@ router.post(
     const visitorId = req.visitorId;
     const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
     const ip = getClientIp(req);
+
+    // 点赞频率限制（防恶意脚本无限刷赞）
+    const rateCheck = checkIpRate("like", ip);
+    if (!rateCheck.allowed) {
+      res.status(429).json({
+        message: `点赞过于频繁，请稍候再试`,
+        retryAfter: rateCheck.retryAfter,
+      });
+      return;
+    }
 
     // 构造互斥身份（与 meLiked 完全一致）
     const identity = buildIdentity(userId, visitorId, normalizedEmail, ip);

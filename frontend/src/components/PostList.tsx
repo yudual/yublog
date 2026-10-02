@@ -346,25 +346,40 @@ export default function PostList({
                 重试
               </button>
             </>
+          ) : layout === "projects" || category === "项目" ? (
+            <div className="w-full max-w-lg mx-auto rounded-3xl border border-dashed border-neutral-300/80 dark:border-neutral-700/80 bg-neutral-50/50 dark:bg-neutral-900/40 p-8 sm:p-10 text-center shadow-xs">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-2xl text-emerald-600 dark:text-emerald-400 mb-4 ring-8 ring-emerald-500/10">
+                💻
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold text-neutral-800 dark:text-neutral-100">
+                项目作品正在打磨中
+              </h3>
+              <p className="mt-2 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                独立产品、代码实验与开源折腾成果即将同步上线。
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                  🚀 独立开发
+                </span>
+                <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                  🛠️ 全栈架构
+                </span>
+                <span className="rounded-full bg-neutral-100 dark:bg-neutral-800 px-3 py-1 text-[11px] font-medium text-neutral-600 dark:text-neutral-300">
+                  📦 开源工具
+                </span>
+              </div>
+            </div>
           ) : (
             <>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-xl text-neutral-400 dark:text-neutral-500 mb-3">
-            {layout === "projects" || category === "项目" ? "💻" : type === "article" ? "📝" : "🍃"}
-          </div>
-          <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-            {layout === "projects" || category === "项目"
-              ? "暂未发布项目内容"
-              : type === "article"
-              ? "该分类下暂无文章"
-              : "暂无动态"}
-          </p>
-          <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-            {layout === "projects" || category === "项目"
-              ? "发动态时选择分类为「项目」即可在此展现"
-              : type === "article"
-              ? "该分类下暂无已发布文章~"
-              : "博主暂未发布动态~"}
-          </p>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-xl text-neutral-400 dark:text-neutral-500 mb-3">
+                {type === "article" ? "📝" : "🍃"}
+              </div>
+              <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
+                {type === "article" ? "该分类下暂无文章" : "暂无动态"}
+              </p>
+              <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
+                {type === "article" ? "该分类下暂无已发布文章~" : "博主暂未发布动态~"}
+              </p>
             </>
           )}
         </div>

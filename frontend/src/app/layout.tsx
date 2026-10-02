@@ -5,6 +5,7 @@ import LoadingBar from "@/components/LoadingBar";
 import ToastContainer from "@/components/ui/Toast";
 import EmojiFadeController from "@/components/EmojiFadeController";
 import FloatingNav from "@/components/navigation/FloatingNav";
+import GlobalMusicManager from "@/components/GlobalMusicManager";
 import { getApiUrl } from "@/lib/api-fetch";
 
 const API_URL = getApiUrl();
@@ -178,6 +179,7 @@ export default async function RootLayout({
         <LoadingBar />
         <ThemeProvider>
           <ToastContainer />
+          <GlobalMusicManager />
           <FloatingNav />
           {children}
           <EmojiFadeController />

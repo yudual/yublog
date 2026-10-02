@@ -7,6 +7,8 @@ import type { PostImage } from "@/lib/types";
 import { isLivePhoto, getImageSrc, getVideoSrc } from "@/lib/post-image";
 import { Volume2, VolumeX } from "lucide-react";
 
+import SafeImage from "./ui/SafeImage";
+
 interface ImageGridProps {
   images: PostImage[];
 }
@@ -22,15 +24,13 @@ function FadeImage({
   sizes: string;
   className?: string;
 }) {
-  const [loaded, setLoaded] = useState(false);
   return (
-    <Image
+    <SafeImage
       src={src}
       alt={alt}
       fill
       sizes={sizes}
-      onLoad={() => setLoaded(true)}
-      className={`${className} transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+      className={className}
     />
   );
 }

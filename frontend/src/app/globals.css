@@ -582,6 +582,24 @@ button:focus-visible {
   animation: content-fade-in 0.2s ease-out;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   页面路由视图平滑过渡 (View Transitions & Page Fade-in)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.18s;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#scroll-root {
+  animation: content-fade-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
 @utility divide-hairline {
   & > :not([hidden]) ~ :not([hidden]) {
     border-top-width: 0.5px;
@@ -1384,7 +1402,7 @@ img.inline-emoji.emoji-error {
 }
 .dark .macos-line-numbers {
   background: #14151c;
-  color: #4a4b57;
+  color: #64748b;
 }
 .macos-enhanced-code {
   flex: 1;
@@ -1409,13 +1427,6 @@ img.inline-emoji.emoji-error {
   font-size: inherit !important;
 }
 
-/* 夜间模式：语法高亮 span 提亮 */
-.dark .article-content pre code span[style*="color"],
-.dark .article-editor-area pre code span[style*="color"],
-.dark .macos-enhanced-code span[style*="color"],
-.dark .macos-code-content span[style*="color"] {
-  filter: brightness(1.5);
-}
 .article-editor-area img,
 .article-content img {
   max-width: 100%;
@@ -2221,7 +2232,7 @@ img.inline-emoji.emoji-error {
 .dark .hljs-comment,
 .dark .hljs-quote,
 .dark .hljs-meta {
-  color: #8b949e;
+  color: #94a3b8;
   font-style: italic;
 }
 

@@ -107,6 +107,7 @@ export default function FloatingNav() {
             onClick={toggleTheme}
             type="button"
             aria-label="切换明暗主题"
+            title={mounted ? (isDark ? "切换为亮色模式" : "切换为暗色模式") : "切换主题"}
             className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
           >
             {mounted ? (
@@ -121,13 +122,20 @@ export default function FloatingNav() {
           </button>
 
           {/* 管理员后台入口 */}
-          <Link
-            href="/admin"
-            aria-label="管理后台"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <UserRound className="h-4 w-4" />
-          </Link>
+          <div className="relative group/admin">
+            <Link
+              href="/admin"
+              aria-label={token ? "进入管理后台" : "管理员登录"}
+              title={token ? "进入管理后台" : "管理员登录"}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <UserRound className="h-4 w-4" />
+            </Link>
+            {/* 桌面端悬浮气泡提示 */}
+            <div className="pointer-events-none absolute right-0 top-full mt-1.5 hidden group-hover/admin:sm:block z-50 whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-[11px] font-medium text-white shadow-md dark:bg-neutral-100 dark:text-neutral-900">
+              {token ? "管理后台" : "管理员登录"}
+            </div>
+          </div>
         </div>
       </div>
 

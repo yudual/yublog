@@ -79,3 +79,28 @@ export function ArticleCardSkeleton({ className = "" }: { className?: string }) 
     </div>
   );
 }
+
+export function ProjectCardSkeleton({ className = "" }: { className?: string }) {
+  return (
+    <div className={`overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-neutral-900/70 p-5 sm:p-6 shadow-xs ${className}`}>
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start">
+        <div className={`h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl ${BLOCK}`} />
+        <div className="min-w-0 flex-1 space-y-2.5 w-full">
+          <div className="flex items-center justify-between">
+            <div className={`h-3 w-16 ${BLOCK}`} />
+            <div className={`h-3 w-20 ${BLOCK}`} />
+          </div>
+          <div className={`h-5 w-3/5 ${BLOCK}`} />
+          <div className="space-y-1.5 pt-0.5">
+            <div className={`h-3.5 w-full ${BLOCK}`} />
+            <div className={`h-3.5 w-4/5 ${BLOCK}`} />
+          </div>
+          <div className="flex items-center gap-2 pt-2">
+            <div className={`h-5 w-16 rounded-full ${BLOCK}`} />
+            <div className={`h-5 w-14 rounded-full ${BLOCK}`} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

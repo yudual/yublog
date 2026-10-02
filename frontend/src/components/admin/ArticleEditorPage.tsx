@@ -36,6 +36,7 @@ import { apiFetch, getToken } from "@/lib/api-fetch";
 import { uploadImage, toAbsoluteUrl } from "@/lib/upload";
 import { htmlToMarkdown } from "@/lib/markdown";
 import { syncFrontmatterToMarkdown, parseFrontmatter, type ArticleFrontmatter } from "@/lib/frontmatter";
+import { calculateReadingStats } from "@/lib/reading-time";
 import { extractFirstMarkdownImage } from "@/lib/post-image";
 import { buildMusicEmbedHtml, buildLinkCardHtml, buildVideoEmbedHtml } from "@/components/editor/embed-utils";
 import { notifyContentUpdated } from "@/lib/content-sync";
@@ -168,12 +169,8 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
 
   // 计算字数与预计阅读时间
   const readingStats = useMemo(() => {
-    const textOnly = content.replace(/```[\s\S]*?```/g, "").replace(/#+\s+/g, "").trim();
-    const charCount = textOnly.length;
-    const words = (textOnly.match(/[\w\d]+/g) || []).length;
-    const totalCount = Math.max(charCount, words);
-    const estMinutes = Math.max(1, Math.ceil(totalCount / 350));
-    return { count: totalCount, minutes: estMinutes };
+    const stats = calculateReadingStats(content || "");
+    return { count: stats.words, minutes: stats.minutes };
   }, [content]);
 
   // 判断是否有未保存的改动

@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { markdownToHtml, copyToClipboard } from "@/lib/markdown";
 import { parseFrontmatter, type ArticleFrontmatter } from "@/lib/frontmatter";
+import { calculateReadingStats } from "@/lib/reading-time";
 import { uploadImage, toAbsoluteUrl } from "@/lib/upload";
 import LinkCardPanel from "../admin/LinkCardPanel";
 import MusicPanel from "../admin/MusicPanel";
@@ -193,12 +194,14 @@ export default function MarkdownEditor({
 
   // 字数统计与阅读时间
   const stats = useMemo(() => {
-    const text = pureContent.replace(/\s+/g, "");
-    const charCount = text.length;
-    const wordCount = (pureContent.match(/[\w\d_]+/g) || []).length;
-    const readMinutes = Math.max(1, Math.ceil(charCount / 350));
+    const reading = calculateReadingStats(pureContent || "");
     const lineCount = value ? value.split("\n").length : 1;
-    return { charCount, wordCount, readMinutes, lineCount };
+    return {
+      charCount: reading.words,
+      wordCount: reading.englishWords,
+      readMinutes: reading.minutes,
+      lineCount,
+    };
   }, [pureContent, value]);
 
   // 插入行内文本或语法片段
@@ -589,9 +592,9 @@ export default function MarkdownEditor({
       }}
     >
       {/* 顶部多功能工具栏 (ByteMD / Ghost 风格，所有按钮支持 onMouseDown 防止文本区失焦) */}
-      <div className="shrink-0 z-20 flex flex-wrap items-center justify-between gap-1.5 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-50/90 dark:bg-[#202025]/90 px-3 py-2 backdrop-blur-md">
-        {/* 左侧：格式化工具组 */}
-        <div className="flex flex-wrap items-center gap-1">
+      <div className="shrink-0 z-20 flex items-center justify-between gap-2 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-50/90 dark:bg-[#202025]/90 px-3 py-2 backdrop-blur-md overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap">
+        {/* 左侧：格式化工具组 (小屏保持单行平滑横滑，杜绝挤占打字视口) */}
+        <div className="flex items-center gap-1 shrink-0">
           {/* 标题下拉菜单 */}
           <div className="relative">
             <button
@@ -861,7 +864,7 @@ export default function MarkdownEditor({
         </div>
 
         {/* 右侧：视图模式切换、语法速查与全屏 */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 pl-1">
           {isFullscreen && onSave && (
             <button
               type="button"

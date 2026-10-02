@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, Eye, Clock, ArrowRight, Folder, Pin, Heart, MessageSquare } from "lucide-react";
@@ -8,6 +8,7 @@ import type { Comment, Post } from "@/lib/types";
 import { formatExactDateTime } from "@/lib/time-format";
 import { resolveAvatarFromHash } from "@/lib/avatar";
 import { stripMarkdownAndHtml } from "@/lib/frontmatter";
+import { calculateReadingTime } from "@/lib/reading-time";
 import { resolveCoverImage } from "@/lib/post-image";
 import { getCurrentUser } from "@/lib/auth";
 import { apiFetch, PUBLIC_API_URL } from "@/lib/api-fetch";
@@ -17,6 +18,7 @@ import { sharePost } from "@/lib/share";
 import ActionMenu from "./ActionMenu";
 import InteractionBubble from "./InteractionBubble";
 import CommentSection from "./CommentSection";
+import SafeImage from "./ui/SafeImage";
 
 const API_URL = PUBLIC_API_URL;
 
@@ -57,9 +59,8 @@ export default function ArticleFeedCard({ post, index, variant = "standalone" }:
   const isJunkExcerpt = !cleanExcerpt || /^---\s*(?:title|category|tags|articleType):/i.test(rawExcerpt || "");
   const excerpt = (!isJunkExcerpt && cleanExcerpt !== post.title?.trim() ? cleanExcerpt : "") || (plainText ? plainText.slice(0, 160) + (plainText.length > 160 ? "…" : "") : "");
 
-  // 估算阅读时间与字数
-  const charCount = plainText.length;
-  const readMinutes = Math.max(1, Math.ceil(charCount / 350));
+  // 估算阅读时间
+  const readMinutes = useMemo(() => calculateReadingTime(post.content || ""), [post.content]);
 
   const typeBadge = ARTICLE_TYPE_BADGES[post.articleType || "original"] || ARTICLE_TYPE_BADGES.original;
   const exactDateTime = formatExactDateTime(post.createdAt);
@@ -265,11 +266,12 @@ export default function ArticleFeedCard({ post, index, variant = "standalone" }:
           >
             {coverUrl && (
               <div className="relative h-20 w-20 shrink-0 overflow-hidden bg-black/5 dark:bg-white/5 sm:h-22 sm:w-22">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <SafeImage
                   src={coverUrl}
                   alt={post.title || ""}
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover/card:scale-105"
+                  fill
+                  sizes="88px"
+                  className="object-cover transition-transform duration-300 group-hover/card:scale-105"
                 />
               </div>
             )}
@@ -458,14 +460,14 @@ export default function ArticleFeedCard({ post, index, variant = "standalone" }:
             href={detailUrl}
             tabIndex={-1}
             aria-hidden="true"
-            className="order-1 sm:order-2 w-full sm:w-44 md:w-52 aspect-[16/9] sm:aspect-[4/3] shrink-0 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800"
+            className="relative order-1 sm:order-2 w-full sm:w-44 md:w-52 aspect-[16/9] sm:aspect-[4/3] shrink-0 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <SafeImage
               src={coverUrl}
               alt={post.title || "文章封面"}
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 100vw, 208px"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           </Link>
         )}

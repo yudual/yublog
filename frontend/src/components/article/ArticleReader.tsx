@@ -28,6 +28,7 @@ import { getCurrentUser, authFetchHeaders } from "@/lib/auth";
 import { useSiteSettings } from "@/lib/site-settings-store";
 import { toAbsoluteUrl } from "@/lib/upload";
 import { stripMarkdownAndHtml } from "@/lib/frontmatter";
+import { calculateReadingStats } from "@/lib/reading-time";
 import ArticleCommentSection from "@/components/article/ArticleCommentSection";
 import ArticleEmbedContent from "@/components/article/ArticleEmbedContent";
 import MusicEmbedCard from "@/components/article/MusicEmbedCard";
@@ -218,12 +219,10 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
     ARTICLE_TYPE_CONFIG[post.articleType || "original"] ||
     ARTICLE_TYPE_CONFIG.original;
 
-  // 估算正文字数与预计阅读时间（纯正文，剔除 Frontmatter、注释与 Markdown 符号）
-  const plainText = useMemo(() => {
-    return stripMarkdownAndHtml(post.content || "");
+  // 估算正文字数与预计阅读时间（纯正文，剔除 Frontmatter、注释、代码块与 Markdown 符号）
+  const readingStats = useMemo(() => {
+    return calculateReadingStats(post.content || "");
   }, [post.content]);
-  const charCount = plainText.length;
-  const readMinutes = Math.max(1, Math.ceil(charCount / 350));
 
   const pageUrl =
     typeof window !== "undefined"
@@ -315,7 +314,7 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
           {/* 预计阅读时间与字数 */}
           <span className="inline-flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />
-            <span>约 {readMinutes} 分钟 · {charCount} 字</span>
+            <span>约 {readingStats.minutes} 分钟 · {readingStats.words} 字</span>
           </span>
 
           {post.region && (
