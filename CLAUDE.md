@@ -8,7 +8,7 @@ YuBlog is a modern WeChat-Moments-style personal blog system (customized and mai
 
 - `frontend/` — Next.js 16 / React 19 App Router application, styled with Tailwind CSS v4. Public pages, admin UI, RSS, and the revalidation route live under `src/app/`; shared UI is in `src/components/`; client state and request helpers are in `src/lib/`.
 - `backend/` — Express 5 API with Sequelize/MySQL. Domain routers live in `src/routes/`, data models and associations in `src/models/`, cross-cutting middleware in `src/middleware/`, and integrations/storage logic in `src/services/`.
-- `deploy/nginx.conf` — VPS deployment proxy/static-file configuration. Both apps have PM2 ecosystem configs.
+- `deploy/nginx.conf` — VPS deployment proxy/static-file configuration. Both apps have PM2 ecosystem configs (`yublog-backend` and `yublog-frontend`).
 
 ## Commands
 
@@ -28,6 +28,19 @@ pnpm dev          # nodemon + TypeScript backend (normally port 4000)
 pnpm build        # compile TypeScript to dist/
 pnpm start        # run dist/index.js
 pnpm db:init       # controlled, repeatable schema/default-data initialization
+
+# Full production build & sync deploy SOP (Oracle build machine -> Tokyo ci VPS):
+# 1. Build
+cd backend && pnpm build && cd ..
+cd frontend && pnpm build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && cd ..
+# 2. Push & Sync
+git add . && git commit -m "..." && git push origin master
+ssh ci "cd /opt/kanle && git pull origin master"
+rsync -avz backend/dist/ ci:/opt/kanle/backend/dist/
+rsync -avz --exclude node_modules frontend/.next/standalone/ ci:/opt/kanle/frontend/.next/standalone/
+rsync -avz frontend/public/ ci:/opt/kanle/frontend/public/
+# 3. Reload PM2 services
+ssh ci "pm2 restart yublog-backend && pm2 restart yublog-frontend"
 ```
 
 Additional backend maintenance scripts are declared in `backend/package.json`, including `db:reset-likes`, `db:migrate-douban-cache`, `db:migrate-font-family`, `db:migrate-footer-html`, `db:migrate-decoration-image`, and `music:migrate-r2`.
@@ -55,7 +68,7 @@ Production media uses Cloudflare R2. Preserve the direct-upload flow: backend pr
 - **Strict Build Rule (DO NOT BUILD ON VPS):** Never run `next build`, `pnpm build`, or `tsc` on the 1GB RAM production VPS! Building must be done locally or in GitHub Actions cloud CI. The VPS only pulls pre-built artifacts or releases.
 - **Local Development First:** Complete all development, debugging, and verification in the local environment (`http://localhost:3000`) before any production releases.
 - **Recommended:** independent Vercel projects rooted at `frontend/` and `backend/`. The backend Vercel function uses the Node runtime because it requires MySQL/mysql2. It exposes the shared Express app and has a daily Douban synchronization cron.
-- **Self-hosted:** frontend standalone build on port 3000 and backend on port 4000, supervised with the supplied PM2 configs. Nginx proxies `/api/` to the backend, proxies the rest to Next.js, and can serve legacy local uploads plus static emoji/font assets.
+- **Self-hosted:** frontend standalone build on port 3000 and backend on port 4000, supervised with the supplied PM2 configs (`yublog-backend` and `yublog-frontend`). Nginx proxies `/api/` to the backend, proxies the rest to Next.js, and can serve legacy local uploads plus static emoji/font assets.
 
 For serverless database connections, `src/config/database.ts` intentionally defaults to a small pool (`max=2`) versus traditional deployments (`max=10`); retain that environment-sensitive behavior unless deployment capacity is deliberately being changed.
 

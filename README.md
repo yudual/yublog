@@ -33,11 +33,12 @@
 ## ✨ 核心特性
 
 - 📱 **朋友圈流光动态**：图文九宫格、Live Photo、短视频播放、高德地图定位、网易云/R2 音乐与外链卡片。
-- 📚 **深度长文与合辑**：基于 Tiptap 的富文本与 Markdown 双向编辑、目录大纲随动、系列长文合辑封装。
-- 💬 **沉浸式互动体系**：拟真点赞动效、嵌套楼层回复、经典微信表情库、拟真微信对话排版的邮件通知。
-- 🎵 **全局浮窗音乐流**：媒体素材库直传 Cloudflare R2，跨页面无缝播放，支持 LRC 歌词逐行高亮滚动。
+- 📚 **深度长文与合辑**：专为博客定制的极简轻量 Markdown 编辑器、移动端横滑防遮挡工具栏、细粒度中英加权阅读时长与字数统计、目录大纲随动、系列长文合辑封装。
+- 💬 **沉浸式互动体系**：拟真点赞动效、基于滑动窗口的高频点赞 IP 限流、嵌套楼层回复、经典微信表情库、拟真微信对话排版的邮件通知。
+- 🎵 **全局浮窗音乐流**：媒体素材库直传 Cloudflare R2，全局单例常驻跨路由无缝续播，支持 LRC 歌词逐行高亮滚动。
 - 🎬 **豆瓣书影音同步**：一键同步个人观影、阅读与听歌足迹，后端快照缓存，公网毫秒级加载。
 - ⚡ **无感压缩与图床自由**：浏览器端上传前自动 WebP 等比智能压缩；支持任意外部图床免配置直连。
+- 🛡️ **优雅容错与平滑体验**：全站图片破损自愈与降级占位（SafeImage）、路由级骨架屏（loading.tsx）、原生 View Transitions 视图过渡、深色模式高对比代码高亮。
 - 🎨 **极简拟态设计**：内嵌 HarmonyOS Sans 字体，原生支持暗黑/明亮无感切换，视觉通透干净。
 
 ---
@@ -94,13 +95,14 @@ pnpm dev
 > ⚠️ **生产铁律**：严禁在 1C1G 小内存 VPS 上执行 `pnpm build` 或 `next build`！所有产物必须在本地或 CI 构建完成后打包分发。
 
 ```bash
-# 1. 本地打包
+# 1. 本地打包（生成后端 dist/ 与前端独立 Standalone 产物）
 cd backend && pnpm build && cd ..
 cd frontend && pnpm build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public && cd ..
 
-# 2. 同步产物至服务器并通过 PM2 守护启动
-pm2 start backend/ecosystem.config.js
-pm2 start frontend/ecosystem.config.js
+# 2. 同步产物至服务器并通过 PM2 守护启动 / 重启
+pm2 start backend/ecosystem.config.js   # 进程名: yublog-backend
+pm2 start frontend/ecosystem.config.js  # 进程名: yublog-frontend
+# 已启动时重载: pm2 restart yublog-backend && pm2 restart yublog-frontend
 ```
 
 Nginx 模板见 [`deploy/nginx.conf`](deploy/nginx.conf)。

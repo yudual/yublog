@@ -33,3 +33,52 @@
    - 前端必须在浏览器端通过 `frontend/src/lib/image-compress.ts` 完成智能无感等比缩放（默认上限 2048px）并转为高压缩率的 WebP 格式再上传，绝不可将 5MB+ 原始相机大图直接推到 R2。
 2. **Next.js 版本特性注意**：
    - 前端采用 Next.js 16+ / React 19，路由与服务端组件有诸多全新约定，遵循 `frontend/node_modules/next/dist/docs/` 规范，避免引入已废弃的旧版本写法。
+
+---
+
+## 四、标准构建、发布与远端同步部署 SOP（严禁跳步）
+
+当用户要求“构建、提交 GitHub、同步部署”时，必须严格执行以下标准流水线：
+
+1. **本地编译构建（甲骨文 or4 高性能环境）**：
+   ```bash
+   # 后端构建（编译为 dist/）
+   cd backend && pnpm build && cd ..
+
+   # 前端构建（Standalone 独立输出模式，并拷贝静态资源）
+   cd frontend && pnpm build
+   cp -r .next/static .next/standalone/.next/static
+   cp -r public .next/standalone/public
+   cd ..
+   ```
+
+2. **Git 提交并推送至 GitHub**：
+   ```bash
+   git add .
+   git commit -m "feat/fix: 详细更新说明"
+   git push origin master
+   ```
+
+3. **远端 VPS 同步与产物分发（目标主机: ci / /opt/kanle）**：
+   ```bash
+   # 1. 远端同步 Git 仓库保持一致
+   ssh ci "cd /opt/kanle && git pull origin master"
+
+   # 2. 同步后端编译产物
+   rsync -avz backend/dist/ ci:/opt/kanle/backend/dist/
+
+   # 3. 同步前端独立产物与公共静态资产
+   rsync -avz --exclude node_modules frontend/.next/standalone/ ci:/opt/kanle/frontend/.next/standalone/
+   rsync -avz frontend/public/ ci:/opt/kanle/frontend/public/
+   ```
+
+4. **重启 PM2 服务与健康验证**：
+   ```bash
+   # 重启生产守护进程
+   ssh ci "pm2 restart yublog-backend && pm2 restart yublog-frontend"
+
+   # 验证生产服务状态
+   ssh ci "curl -sI http://127.0.0.1:3000"
+   curl -sI https://yugold.top
+   ```
+

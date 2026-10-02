@@ -15,8 +15,9 @@
     "dev:be": "cd backend && pnpm dev",
     "db:pull-remote": "node scripts/sync-db-from-remote.js",
     "dev:frontend": "npm --prefix frontend run dev",
-    "build": "npm --prefix backend run build && npm --prefix frontend run build",
-    "build:backend": "npm --prefix backend run build",
-    "build:frontend": "npm --prefix frontend run build"
+    "build": "pnpm build:backend && pnpm build:frontend",
+    "build:backend": "pnpm --prefix backend build",
+    "build:frontend": "pnpm --prefix frontend build && cp -r frontend/.next/static frontend/.next/standalone/.next/static && cp -r frontend/public frontend/.next/standalone/public",
+    "deploy": "node scripts/deploy.js"
   }
 }
