@@ -10,10 +10,23 @@ import type { Request } from "express";
  * 因此必须取 X-Real-IP 或 XFF 的最后一个条目，绝不能取第一个。
  */
 export function getClientIp(req: Request): string {
+  // 1. CDN 代理透传真实客户端 IP：EdgeOne (eo-real-ip) 与 Cloudflare (cf-connecting-ip)
+  const eoRealIp = req.headers["eo-real-ip"];
+  if (typeof eoRealIp === "string" && eoRealIp.trim().length > 0) {
+    return eoRealIp.trim();
+  }
+  const cfConnectingIp = req.headers["cf-connecting-ip"];
+  if (typeof cfConnectingIp === "string" && cfConnectingIp.trim().length > 0) {
+    return cfConnectingIp.trim();
+  }
+
+  // 2. Nginx 设置的 X-Real-IP
   const xRealIp = req.headers["x-real-ip"];
   if (typeof xRealIp === "string" && xRealIp.length > 0) {
     return xRealIp.trim();
   }
+
+  // 3. X-Forwarded-For 最后一跳（Nginx 追加）
   const xff = req.headers["x-forwarded-for"];
   const xffList = typeof xff === "string" ? xff.split(",") : Array.isArray(xff) ? xff : [];
   const lastHop = xffList.map((s) => s.trim()).filter(Boolean).pop();

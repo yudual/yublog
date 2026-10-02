@@ -28,7 +28,7 @@ async function migrateLikesToUserId(user: User, ip: string, visitorId?: string) 
   // 三个维度的候选旧记录一次取齐（互不重叠的 WHERE 条件）
   const orClauses: Record<string, unknown>[] = [];
   if (visitorId) orClauses.push({ visitorId, userId: null });
-  orClauses.push({ email: user.email, userId: null });
+  if (user.email) orClauses.push({ email: user.email, userId: null });
   if (ip) orClauses.push({ ip, email: null, visitorId: null, userId: null });
 
   const legacyLikes = await Like.findAll({ where: { [Op.or]: orClauses } });
@@ -109,6 +109,12 @@ router.post(
       .matches(/^[a-zA-Z0-9_]+$/),
   ],
   async (req: Request, res: Response) => {
+    // 个人博客默认关闭公开注册通道，防自动化脚本扫描、探测与脏数据写入
+    if (process.env.ALLOW_REGISTRATION !== "true") {
+      res.status(403).json({ message: "注册通道已关闭" });
+      return;
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });

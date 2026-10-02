@@ -83,7 +83,13 @@ router.get("/", async (req: Request, res: Response) => {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
     if (token) {
-      const decoded = verifyToken(token);
+      let decoded: import("../utils/jwt").TokenPayload;
+      try {
+        decoded = verifyToken(token);
+      } catch {
+        res.status(401).json({ message: "登录令牌已过期或无效，请重新登录" });
+        return;
+      }
       const adminId = decoded.id;
       const adminUser = await User.findByPk(adminId, { attributes: ["nickname", "cover"] });
       const adminNickname = adminUser?.nickname || "";

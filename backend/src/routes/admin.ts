@@ -123,11 +123,27 @@ router.get("/dashboard", authenticate, requireAdmin, async (_req: AuthRequest, r
   });
 });
 
+// GET /api/admin/me - 获取当前登录管理员自己的资料
+router.get("/me", authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+  const user = await User.findByPk(req.user!.id, {
+    attributes: ["id", "email", "username", "nickname", "avatar", "cover", "bio", "website", "role", "createdAt"],
+  });
+  if (!user) {
+    res.status(404).json({ message: "未找到博主账号" });
+    return;
+  }
+  res.json(user);
+});
+
 // GET /api/admin/users - list users
 router.get("/users", authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {
   const users = await User.findAll({
     attributes: ["id", "email", "username", "nickname", "avatar", "cover", "bio", "website", "role", "createdAt"],
-    order: [["createdAt", "DESC"]],
+    // 管理员排前，优先返回早期创建的主博主账号，绝不让新创建的访客排在首位
+    order: [
+      ["role", "ASC"], // 'admin' < 'visitor'
+      ["createdAt", "ASC"],
+    ],
   });
   res.json(users);
 });

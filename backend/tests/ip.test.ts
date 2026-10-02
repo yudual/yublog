@@ -12,6 +12,24 @@ function mockReq(headers: Record<string, string | string[] | undefined>, ip?: st
 }
 
 describe("getClientIp（XFF 伪造防护）", () => {
+  it("优先取 EdgeOne CDN 透传的 eo-real-ip", () => {
+    const req = mockReq({
+      "eo-real-ip": "114.114.114.114",
+      "x-real-ip": "43.175.168.192", // EdgeOne 节点 IP
+      "x-forwarded-for": "114.114.114.114, 43.175.168.192",
+    });
+    expect(getClientIp(req)).toBe("114.114.114.114");
+  });
+
+  it("无 eo-real-ip 时优先取 Cloudflare 透传的 cf-connecting-ip", () => {
+    const req = mockReq({
+      "cf-connecting-ip": "1.1.1.1",
+      "x-real-ip": "172.68.0.1",
+      "x-forwarded-for": "1.1.1.1, 172.68.0.1",
+    });
+    expect(getClientIp(req)).toBe("1.1.1.1");
+  });
+
   it("优先取 nginx 覆盖写入的 X-Real-IP", () => {
     const req = mockReq({
       "x-real-ip": "203.0.113.7",

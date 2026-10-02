@@ -358,24 +358,34 @@ export default function AdminUsers() {
     }
 
     Promise.all([
-      apiFetch("/admin/users").then((res) => res.json()),
+      apiFetch("/admin/me")
+        .then((res) => (res.ok ? res.json() : apiFetch("/admin/users").then((r) => r.json())))
+        .catch(() => apiFetch("/admin/users").then((r) => r.json())),
       fetch(`${PUBLIC_API_URL}/settings`, { cache: "no-store" }).then((res) => res.json()),
     ])
-      .then(([data, settings]: [User[], any]) => {
-        if (Array.isArray(data)) {
-          const admin = data[0];
-          if (admin) {
-            setUser(admin);
-            setForm({
-              email: admin.email || "",
-              username: admin.username || "",
-              nickname: admin.nickname,
-              bio: admin.bio,
-              website: admin.website || "",
-              avatar: admin.avatar,
-              cover: admin.cover,
-            });
-          }
+      .then(([userData, settings]: [any, any]) => {
+        let admin: User | null = null;
+        if (userData && !Array.isArray(userData) && userData.id) {
+          admin = userData;
+        } else if (Array.isArray(userData) && userData.length > 0) {
+          const loggedEmail = typeof window !== "undefined" ? localStorage.getItem("admin_email") : null;
+          admin =
+            userData.find(
+              (u: any) => (loggedEmail && u.email === loggedEmail) || u.role === "admin"
+            ) || userData[0];
+        }
+
+        if (admin) {
+          setUser(admin);
+          setForm({
+            email: admin.email || "",
+            username: admin.username || "",
+            nickname: admin.nickname || "",
+            bio: admin.bio || "",
+            website: admin.website || "",
+            avatar: admin.avatar || "",
+            cover: admin.cover || "",
+          });
         }
         // 解析 backgroundImages（JSON 字符串 → 数组）
         let bgImages: string[] = [];
@@ -385,13 +395,13 @@ export default function AdminUsers() {
         } else if (typeof raw === "string" && raw) {
           try {
             const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) bgImages = parsed.filter((u) => typeof u === "string");
+            if (Array.isArray(parsed)) bgImages = parsed.filter((u: any) => typeof u === "string");
           } catch {
             bgImages = [];
           }
         }
         // 如果后端没有轮播图但用户有封面图，用封面图初始化
-        const cover = data?.[0]?.cover;
+        const cover = admin?.cover;
         if (bgImages.length === 0 && cover) {
           bgImages = [cover];
         }
