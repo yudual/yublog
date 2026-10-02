@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ExternalLink, Copy, Check, QrCode, X } from "lucide-react";
 import { SocialIcon, getSocialPlatform } from "@/components/SocialIcons";
-import { copyToClipboard } from "@/lib/markdown";
+import { copyToClipboard } from "@/lib/clipboard";
 import { toAbsoluteUrl, toHttps } from "@/lib/upload";
 
 export interface SocialLinkItem {

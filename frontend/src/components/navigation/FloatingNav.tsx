@@ -3,18 +3,27 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Sun, Moon, UserRound, Camera } from "lucide-react";
 import { markManualOverride } from "@/lib/dark-mode-override";
 import { getToken } from "@/lib/api-fetch";
-import { PublishModal } from "@/components/TopBar";
+
+// PublishModal 位于 2851 行的 TopBar.tsx，静态引入会把编辑器/定位/豆瓣选择器等
+// 整条依赖链拖进所有访客的首屏 bundle；仅博主点击发布时才需要，按需加载。
+const PublishModal = dynamic(
+  () => import("@/components/TopBar").then((m) => m.PublishModal),
+  { ssr: false }
+);
 
 const NAV_ITEMS = [
   { label: "首页", href: "/" },
   { label: "文章", href: "/articles" },
   { label: "项目", href: "/projects" },
   { label: "岁岁念", href: "/moments" },
+  { label: "Labs", href: "/labs" },
+  { label: "装备", href: "/equipment" },
   { label: "关于", href: "/about" },
 ];
 

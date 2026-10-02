@@ -44,39 +44,11 @@ hljs.registerLanguage("nginx", nginx);
 hljs.registerLanguage("ini", ini);
 
 /**
- * 跨浏览器安全剪贴板复制（支持非安全上下文 HTTP / 局域网 IP 降级回退）
+ * 跨浏览器安全剪贴板复制（支持非安全上下文 HTTP / 局域网 IP 降级回退）。
+ * 实现已迁移到 lib/clipboard.ts：避免只需复制功能的轻组件
+ * 因导入本模块而把 highlight.js / marked 拖进客户端 bundle。
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
-  if (!text) return false;
-  if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
-      // 降级使用 execCommand
-    }
-  }
-
-  if (typeof document !== "undefined") {
-    try {
-      const textArea = document.createElement("textarea");
-      textArea.value = text;
-      textArea.style.position = "fixed";
-      textArea.style.left = "-999999px";
-      textArea.style.top = "-999999px";
-      textArea.setAttribute("readonly", "");
-      document.body.appendChild(textArea);
-      textArea.select();
-      const success = document.execCommand("copy");
-      document.body.removeChild(textArea);
-      return success;
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
-}
+export { copyToClipboard } from "./clipboard";
 
 /**
  * 语言别名与显示名称映射

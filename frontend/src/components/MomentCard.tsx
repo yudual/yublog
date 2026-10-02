@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useRef, useMemo, useSyncExternalStore, type CSSProperties } from "react";
+import { memo, useEffect, useState, useRef, useMemo, useSyncExternalStore, type CSSProperties } from "react";
 import { Music, Pause, Pin } from "lucide-react";
 import type { Post } from "@/lib/types";
 import { formatExactDateTime, getPostSourceLabel } from "@/lib/time-format";
@@ -75,7 +75,7 @@ export interface MomentCardProps {
   variant?: "timeline" | "card";
 }
 
-export default function MomentCard({
+function MomentCard({
   post,
   index,
   onDelete,
@@ -683,3 +683,6 @@ export default function MomentCard({
     </article>
   );
 }
+
+// memo：列表中任一卡片内部状态变化时，其余卡片 props 不变即可跳过重渲染
+export default memo(MomentCard);

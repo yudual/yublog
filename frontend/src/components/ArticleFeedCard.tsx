@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { memo, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, Eye, Clock, ArrowRight, Folder, Pin, Heart, MessageSquare } from "lucide-react";
@@ -43,7 +43,7 @@ const ARTICLE_TYPE_BADGES: Record<string, { label: string; className: string }> 
   },
 };
 
-export default function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCardProps) {
+function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCardProps) {
   const router = useRouter();
   const detailUrl = `/articles/${post.shortId || post.id}`;
   const coverUrl = resolveCoverImage(post.cover, post.content);
@@ -475,3 +475,6 @@ export default function ArticleFeedCard({ post, index, variant = "standalone" }:
     </article>
   );
 }
+
+// memo：文章流中任一卡片更新时跳过其余卡片的重渲染
+export default memo(ArticleFeedCard);

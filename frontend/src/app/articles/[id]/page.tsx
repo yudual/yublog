@@ -50,9 +50,24 @@ export async function generateMetadata({
     const title = post.type === "collection"
       ? `《${post.title || "合辑"}》系列专栏 - 个人博客`
       : `${post.title || "文章详情"} - 个人博客`;
+    const description = cleanSummary.slice(0, 150) || (post.type === "collection" ? "查看系列专栏合辑详情" : "文章详情");
+    // 未配置封面时分享卡退化为 summary 型，不带空图链接
+    const imageUrl = typeof post.cover === "string" && post.cover.trim() ? post.cover.trim() : undefined;
     return {
       title,
-      description: cleanSummary.slice(0, 150) || (post.type === "collection" ? "查看系列专栏合辑详情" : "文章详情"),
+      description,
+      openGraph: {
+        title,
+        description,
+        type: "article",
+        ...(imageUrl ? { images: [{ url: imageUrl }] } : {}),
+      },
+      twitter: {
+        card: imageUrl ? "summary_large_image" : "summary",
+        title,
+        description,
+        ...(imageUrl ? { images: [imageUrl] } : {}),
+      },
     };
   } catch {
     return { title: "文章详情" };

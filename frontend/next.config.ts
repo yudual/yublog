@@ -6,6 +6,11 @@ const MEDIA_HOST = process.env.NEXT_PUBLIC_MEDIA_ORIGIN
   : null;
 
 const nextConfig: NextConfig = {
+  // 显式指定 monorepo workspace 根目录，避免 Next 因根目录/前端目录同时存在
+  // 多份 lockfile 而错误推断 workspace root 并产生启动警告
+  turbopack: {
+    root: __dirname,
+  },
   // Pi's browser preview reaches the dev server through these host interfaces.
   // Next blocks cross-origin dev assets/HMR unless the forwarded origins are allowed.
   allowedDevOrigins: ["161.33.5.19", "10.0.0.49"],
