@@ -18,6 +18,7 @@ import { getClientIp } from "../utils/ip";
 import { getRegionByIp } from "../utils/region";
 import { checkCommentRate, recordCommentSuccess, resetViolations } from "../middleware/rateLimit";
 import { blacklistService } from "../services/blacklist-service";
+import { sanitizeCommentContent } from "../utils/sanitize";
 import { triggerRevalidate } from "../utils/revalidate";
 import { avatarHash } from "../utils/avatar-hash";
 import { resolveReplyToEmail } from "../utils/comment-utils";
@@ -150,7 +151,7 @@ router.post(
       replyTo: req.body.replyTo || null,
       replyToEmail: replyToEmail ?? undefined,
       replyToId: req.body.replyToId || null,
-      content: req.body.content,
+      content: sanitizeCommentContent(req.body.content),
       ip,
       region: await getRegionByIp(ip),
     });
@@ -185,8 +186,21 @@ router.post(
     }
     const existing = await CommentLike.findOne({ where: { commentId: comment.id, ...identity } });
     const liked = existing ? existing.status === "unlike" : true;
-    if (existing) await existing.update({ status: liked ? "like" : "unlike", name });
-    else await CommentLike.create({ commentId: comment.id, name, ...identity, status: "like" });
+    if (existing) {
+      await existing.update({ status: liked ? "like" : "unlike", name });
+    } else {
+      try {
+        await CommentLike.create({ commentId: comment.id, name, ...identity, status: "like" });
+      } catch (err: any) {
+        // 并发双击：findOne 与 create 之间另一请求插入了同维度记录，撞互斥唯一索引
+        if (err?.name !== "SequelizeUniqueConstraintError") throw err;
+        const raced = await CommentLike.findOne({ where: { commentId: comment.id, ...identity } });
+        if (raced) {
+          const newStatus = raced.status === "like" ? "unlike" : "like";
+          await raced.update({ status: newStatus, name });
+        }
+      }
+    }
     const likeCount = await CommentLike.count({ where: { commentId: comment.id, status: "like" } });
     res.json({ liked, likeCount });
   }

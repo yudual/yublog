@@ -1,6 +1,8 @@
 import { Router, Request, Response } from "express";
 import { Post, Comment, Like, User } from "../models";
 import { verifyToken } from "../utils/jwt";
+import { getClientIp } from "../utils/ip";
+import { checkIpRate } from "../middleware/rateLimit";
 
 const router = Router();
 
@@ -189,6 +191,13 @@ router.get("/", async (req: Request, res: Response) => {
     }
 
     // 访客分支：只返回回复给该邮箱的评论
+    // 邮箱即凭证，按 IP 限流防批量枚举探测
+    const notifyRate = checkIpRate("notify", getClientIp(req));
+    if (!notifyRate.allowed) {
+      res.status(429).json({ message: `查询过于频繁，请 ${notifyRate.retryAfter ?? 60} 秒后重试` });
+      return;
+    }
+
     const email = normalizeEmail(req.query.email as string);
     if (!email) {
       res.status(401).json({ message: "缺少认证信息或邮箱参数" });

@@ -114,8 +114,13 @@ router.get(
  * GET /api/location/search?keywords=光谷&city=武汉
  * 代理高德 REST API 的 POI 搜索，Key 从数据库 site_settings 读取。
  * 返回精简的 POI 列表：[{ name, city, address, lng, lat }]
+ * admin only：该接口直接消耗站点高德配额，与 /key、/regeo、/ip 保持一致的鉴权策略。
  */
-router.get("/search", async (req: Request, res: Response) => {
+router.get(
+  "/search",
+  authenticate,
+  requireAdmin,
+  async (req: AuthRequest, res: Response) => {
   const keywords = String(req.query.keywords || "").trim();
   if (!keywords) {
     res.json([]);

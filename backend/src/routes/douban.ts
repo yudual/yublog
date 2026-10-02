@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { timingSafeEqual } from "crypto";
 import axios from "axios";
 import { SiteSetting } from "../models";
 import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
@@ -258,9 +259,15 @@ router.post(
 
 // GET /api/douban/cron-sync - protected daily scheduler endpoint
 const runCronSync = async (req: Request, res: Response) => {
-  const expectedSecret = process.env.CRON_SECRET;
-  const suppliedSecret = req.headers.authorization?.replace(/^Bearer\s+/i, "") || req.headers["x-cron-secret"];
-  if (!expectedSecret || suppliedSecret !== expectedSecret) {
+  const expectedSecret = process.env.CRON_SECRET || "";
+  const rawSupplied = req.headers.authorization?.replace(/^Bearer\s+/i, "") || req.headers["x-cron-secret"] || "";
+  const suppliedSecret = String(rawSupplied);
+  // 常量时间比较，避免逐字节短路泄露密钥前缀（timing attack）
+  const secretsMatch =
+    expectedSecret.length > 0 &&
+    suppliedSecret.length === expectedSecret.length &&
+    timingSafeEqual(Buffer.from(suppliedSecret), Buffer.from(expectedSecret));
+  if (!secretsMatch) {
     res.status(401).json({ message: "未授权的同步请求" });
     return;
   }

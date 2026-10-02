@@ -16,6 +16,8 @@ import { buildIdentity } from "../utils/identity";
 import { loadCommentLikeStats } from "../utils/comment-like-stats";
 import { enforceCommentGuard } from "../utils/comment-guard";
 import { resolveReplyToEmail } from "../utils/comment-utils";
+import { sanitizeCommentContent, sanitizeDisplayName, isProbablyEmail } from "../utils/sanitize";
+import { shouldCountView } from "../utils/view-dedup";
 
 const router = Router();
 
@@ -517,7 +519,8 @@ router.get("/:id", authenticateOptional, async (req: AuthRequest, res: Response)
   }
 
   // ?view=1 时原子递增阅读量（SSR 不带此参数，仅客户端 fetch 带）
-  if (req.query.view === "1") {
+  // 同一 visitorId 在 TTL 窗口内重复请求不重复计数，防刷新刷量
+  if (req.query.view === "1" && shouldCountView(req.visitorId, post.id)) {
     await Post.increment("viewCount", { where: { id: post.id } });
     // Sequelize increment() 不更新内存中的实例，手动同步
     const current = (post.getDataValue("viewCount") as number) || 0;
@@ -1080,7 +1083,7 @@ router.post(
       replyTo: req.body.replyTo || null,
       replyToEmail: replyToEmail ?? undefined,
       replyToId: req.body.replyToId || null,
-      content: req.body.content,
+      content: sanitizeCommentContent(req.body.content),
       ip,
       region: commentRegion,
     });
@@ -1194,16 +1197,29 @@ router.post(
       await existing.update({ status: newStatus, name: displayName });
       liked = newStatus === "like";
     } else {
-      await CommentLike.create({
-        commentId: comment.id,
-        name: displayName,
-        email: identity.email,
-        ip: identity.ip,
-        visitorId: identity.visitorId,
-        userId: identity.userId,
-        status: "like",
-      });
-      liked = true;
+      try {
+        await CommentLike.create({
+          commentId: comment.id,
+          name: displayName,
+          email: identity.email,
+          ip: identity.ip,
+          visitorId: identity.visitorId,
+          userId: identity.userId,
+          status: "like",
+        });
+        liked = true;
+      } catch (err: any) {
+        // 并发双击：findOne 与 create 之间另一请求插入了同维度记录，撞互斥唯一索引
+        if (err?.name !== "SequelizeUniqueConstraintError") throw err;
+        const raced = await CommentLike.findOne({ where: { commentId: comment.id, ...identity } });
+        if (raced) {
+          const newStatus = raced.status === "like" ? "unlike" : "like";
+          await raced.update({ status: newStatus, name: displayName });
+          liked = newStatus === "like";
+        } else {
+          liked = true;
+        }
+      }
     }
 
     // 返回当前评论的点赞计数（仅 status='like'）
@@ -1298,16 +1314,29 @@ router.post(
       liked = newStatus === "like";
     } else {
       // 新建点赞记录：仅存当前维度的字段，其他设 NULL（与 4 个互斥 UNIQUE 索引对齐）
-      await Like.create({
-        postId: post.id,
-        name: displayName,
-        email: identity.email,
-        ip: identity.ip,
-        visitorId: identity.visitorId,
-        userId: identity.userId,
-        status: "like",
-      });
-      liked = true;
+      try {
+        await Like.create({
+          postId: post.id,
+          name: displayName,
+          email: identity.email,
+          ip: identity.ip,
+          visitorId: identity.visitorId,
+          userId: identity.userId,
+          status: "like",
+        });
+        liked = true;
+      } catch (err: any) {
+        // 并发双击：findOne 与 create 之间另一请求插入了同维度记录，撞互斥唯一索引
+        if (err?.name !== "SequelizeUniqueConstraintError") throw err;
+        const raced = await Like.findOne({ where: { postId: post.id, ...identity } });
+        if (raced) {
+          const newStatus = raced.status === "like" ? "unlike" : "like";
+          await raced.update({ status: newStatus, name: displayName });
+          liked = newStatus === "like";
+        } else {
+          liked = true;
+        }
+      }
     }
 
     // 返回 likes 列表（仅 status='like'，前端无需手动维护）
@@ -1333,14 +1362,29 @@ router.post(
 //   4. 无 email：只更新对应维度的 name
 // 冲突处理：同 post 已存在 email 维度点赞 → 把旧 visitorId/IP 维度记录软删为 unlike
 router.put("/likes/update-name", async (req: AuthRequest, res: Response) => {
-  const { email, newName } = req.body;
-  if (!newName || typeof newName !== "string") {
-    res.status(400).json({ message: "缺少 newName 参数" });
+  const { email, newName: rawNewName } = req.body;
+
+  // 该接口为访客功能、无强鉴权（邮箱即身份凭证），因此按 IP 严格限流防批量枚举
+  const ip = getClientIp(req);
+  const renameRate = checkIpRate("like-rename", ip);
+  if (!renameRate.allowed) {
+    res.status(429).json({
+      message: `操作过于频繁，请 ${renameRate.retryAfter ?? 60} 秒后重试`,
+    });
     return;
   }
 
-  const normalizedEmail = email ? String(email).trim().toLowerCase() : "";
-  const ip = getClientIp(req);
+  if (!rawNewName || typeof rawNewName !== "string") {
+    res.status(400).json({ message: "缺少 newName 参数" });
+    return;
+  }
+  const newName = sanitizeDisplayName(rawNewName);
+  if (!newName) {
+    res.status(400).json({ message: "newName 不能为空" });
+    return;
+  }
+  const normalizedEmail = isProbablyEmail(email) ? email.trim().toLowerCase() : "";
+
   const visitorId = req.visitorId;
 
   let updated = 0;

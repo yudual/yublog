@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { body, validationResult } from "express-validator";
 import { Op } from "sequelize";
-import { User, Like } from "../models";
+import { sequelize, User, Like } from "../models";
 import { generateToken } from "../utils/jwt";
 import { getClientIp } from "../utils/ip";
 import { AuthRequest } from "../middleware/auth";
@@ -19,87 +19,66 @@ const router = Router();
  *
  * 冲突处理：同 post 已有 userId 维度点赞 → 把旧维度记录软删为 unlike（WP Ulike status 翻转）
  * 升级后 meLiked 仅按 userId 查询即可，实现登录用户跨设备一致。
+ *
+ * 实现说明：整体包在一个事务里；每个维度的"已存在 userId 维度点赞"用一次
+ * IN 批量查询 + 内存 Map 代替逐条 findOne（旧实现是 2N 次查询的 N+1），
+ * Like 表对 email/visitor_id/ip 单列有索引支撑这些 WHERE 条件。
  */
 async function migrateLikesToUserId(user: User, ip: string, visitorId?: string) {
-  // 1) visitorId 维度 → userId（cookie 游客登录）
-  if (visitorId) {
-    const cookieLikes = await Like.findAll({
-      where: { visitorId, userId: null },
-    });
-    for (const like of cookieLikes) {
-      const dup = await Like.findOne({ where: { postId: like.postId, userId: user.id } });
-      if (dup) {
+  // 三个维度的候选旧记录一次取齐（互不重叠的 WHERE 条件）
+  const orClauses: Record<string, unknown>[] = [];
+  if (visitorId) orClauses.push({ visitorId, userId: null });
+  orClauses.push({ email: user.email, userId: null });
+  if (ip) orClauses.push({ ip, email: null, visitorId: null, userId: null });
+
+  const legacyLikes = await Like.findAll({ where: { [Op.or]: orClauses } });
+  if (legacyLikes.length === 0) return;
+
+  const postIds = [...new Set(legacyLikes.map((l) => l.postId))];
+  const ownedLikes = await Like.findAll({
+    where: { userId: user.id, postId: postIds },
+    attributes: ["postId", "status"],
+  });
+  const ownedByPost = new Map<string, string>();
+  for (const owned of ownedLikes) ownedByPost.set(owned.postId, owned.status);
+
+  await sequelize.transaction(async (t) => {
+    for (const like of legacyLikes) {
+      const dupStatus = ownedByPost.get(like.postId);
+      const isVisitorDim = !!visitorId && like.visitorId === visitorId;
+      const isEmailDim = like.email === user.email;
+      const isIpDim = !!ip && like.ip === ip && !like.email && !like.visitorId;
+      if (!isVisitorDim && !isEmailDim && !isIpDim) continue;
+
+      if (dupStatus) {
         // 冲突：保留用户最新的点赞意图。
         // 旧维度是 like 但 userId 维度是 unlike → 把 userId 维度恢复为 like
         // 然后软删旧维度记录为 unlike（不物理删除，保留历史）
+        if (like.status === "like" && dupStatus === "unlike") {
+          await Like.update({ status: "like" }, {
+            where: { userId: user.id, postId: like.postId },
+            transaction: t,
+          });
+        }
         if (like.status === "like") {
-          if (dup.status === "unlike") {
-            await dup.update({ status: "like" });
-          }
-          await like.update({ status: "unlike" });
+          await like.update({ status: "unlike" }, { transaction: t });
         }
       } else {
         // 升级：补 userId + nickname，清空其他维度字段
-        await like.update({
-          userId: user.id,
-          name: user.nickname,
-          visitorId: null,
-          email: null,
-          ip: null,
-        });
+        await like.update(
+          {
+            userId: user.id,
+            name: user.nickname,
+            visitorId: null,
+            email: null,
+            ip: null,
+          },
+          { transaction: t }
+        );
+        ownedByPost.set(like.postId, "like");
       }
     }
-  }
-
-  // 2) email 维度 → userId（评论过的游客登录）
-  const emailLikes = await Like.findAll({
-    where: { email: user.email, userId: null },
   });
-  for (const like of emailLikes) {
-    const dup = await Like.findOne({ where: { postId: like.postId, userId: user.id } });
-    if (dup) {
-      if (like.status === "like") {
-        if (dup.status === "unlike") {
-          await dup.update({ status: "like" });
-        }
-        await like.update({ status: "unlike" });
-      }
-    } else {
-      await like.update({
-        userId: user.id,
-        name: user.nickname,
-        email: null,
-        ip: null,
-        visitorId: null,
-      });
-    }
-  }
-
-  // 3) IP 维度 → userId（纯匿名游客登录）
-  if (ip) {
-    const ipLikes = await Like.findAll({
-      where: { ip, email: null, visitorId: null, userId: null },
-    });
-    for (const like of ipLikes) {
-      const dup = await Like.findOne({ where: { postId: like.postId, userId: user.id } });
-      if (dup) {
-        if (like.status === "like") {
-          if (dup.status === "unlike") {
-            await dup.update({ status: "like" });
-          }
-          await like.update({ status: "unlike" });
-        }
-      } else {
-        await like.update({
-          userId: user.id,
-          name: user.nickname,
-          email: null,
-          ip: null,
-          visitorId: null,
-        });
-      }
-    }
-  }
 }
 
 function publicUser(user: User) {

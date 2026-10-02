@@ -174,16 +174,28 @@ export const VIDEO_REFRESH_IP_WINDOW = 10 * 60 * 1000;
 export const LIKE_IP_LIMIT = 30;
 export const LIKE_IP_WINDOW = 60 * 1000;
 
+/** 点赞昵称更新限流：1 分钟内单 IP 最多 10 次（update-name 无强鉴权，防批量枚举） */
+export const LIKE_RENAME_IP_LIMIT = 10;
+export const LIKE_RENAME_IP_WINDOW = 60 * 1000;
+
+/** 访客通知查询限流：1 分钟内单 IP 最多 20 次（防邮箱枚举探测） */
+export const NOTIFY_IP_LIMIT = 20;
+export const NOTIFY_IP_WINDOW = 60 * 1000;
+
 const authLoginWindow = new SlidingWindow();
 const authRegisterWindow = new SlidingWindow();
 const videoRefreshWindow = new SlidingWindow();
 const likeWindow = new SlidingWindow();
+const likeRenameWindow = new SlidingWindow();
+const notifyWindow = new SlidingWindow();
 
 const IP_RATE_RULES = {
   login: { window: authLoginWindow, limit: AUTH_LOGIN_IP_LIMIT, windowMs: AUTH_LOGIN_IP_WINDOW },
   register: { window: authRegisterWindow, limit: AUTH_REGISTER_IP_LIMIT, windowMs: AUTH_REGISTER_IP_WINDOW },
   "video-refresh": { window: videoRefreshWindow, limit: VIDEO_REFRESH_IP_LIMIT, windowMs: VIDEO_REFRESH_IP_WINDOW },
   like: { window: likeWindow, limit: LIKE_IP_LIMIT, windowMs: LIKE_IP_WINDOW },
+  "like-rename": { window: likeRenameWindow, limit: LIKE_RENAME_IP_LIMIT, windowMs: LIKE_RENAME_IP_WINDOW },
+  notify: { window: notifyWindow, limit: NOTIFY_IP_LIMIT, windowMs: NOTIFY_IP_WINDOW },
 } as const;
 
 export type IpRateKind = keyof typeof IP_RATE_RULES;

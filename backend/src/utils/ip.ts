@@ -2,20 +2,23 @@ import type { Request } from "express";
 
 /**
  * 从 Express 请求中提取客户端真实 IP。
- * 优先级：X-Forwarded-For（取第一个，nginx 反向代理场景）> X-Real-IP > req.ip > connection.remoteAddress
- * 注意：生产环境 nginx 需配置 proxy_set_header X-Real-IP $remote_addr; 和 X-Forwarded-For。
+ * 优先级：X-Real-IP > X-Forwarded-For（取最后一跳）> req.ip > connection.remoteAddress
+ *
+ * 安全说明：XFF 的左侧条目可被客户端伪造（curl -H "X-Forwarded-For: 1.2.3.4"）。
+ * 生产 nginx 配置为 proxy_set_header X-Real-IP $remote_addr（覆盖客户端伪造值）
+ * 和 X-Forwarded-For $proxy_add_x_forwarded_for（把真实 IP 追加到末尾），
+ * 因此必须取 X-Real-IP 或 XFF 的最后一个条目，绝不能取第一个。
  */
 export function getClientIp(req: Request): string {
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) {
-    return xff.split(",")[0].trim();
-  }
-  if (Array.isArray(xff) && xff.length > 0) {
-    return xff[0].trim();
-  }
   const xRealIp = req.headers["x-real-ip"];
   if (typeof xRealIp === "string" && xRealIp.length > 0) {
     return xRealIp.trim();
+  }
+  const xff = req.headers["x-forwarded-for"];
+  const xffList = typeof xff === "string" ? xff.split(",") : Array.isArray(xff) ? xff : [];
+  const lastHop = xffList.map((s) => s.trim()).filter(Boolean).pop();
+  if (lastHop) {
+    return lastHop;
   }
   if (req.ip) return req.ip;
   const remote = req.connection?.remoteAddress;

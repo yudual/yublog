@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import path from "path";
@@ -41,14 +42,23 @@ function buildCorsOrigin(): cors.CorsOptions["origin"] {
 
 const app = express();
 
+// 基础安全响应头。contentSecurityPolicy 关闭：API/静态资源响应不含 HTML，
+// 且默认 CSP 会干扰前台 /uploads 旧图与调试；跨域资源策略放开（图片跨源嵌场景多）。
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
 app.use(
   cors({
     origin: buildCorsOrigin(),
     credentials: true,
   })
 );
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 app.use(visitorCookieMiddleware);
 
@@ -92,6 +102,11 @@ app.use("/api/video", videoParseRoutes);
 app.use("/api/douban", doubanRoutes);
 app.use("/api", contentRoutes);
 
+// 未匹配的 API 路由统一返回 JSON 404（避免 Express 默认 HTML 404 泄露给 API 调用方）
+app.use("/api", (_req: express.Request, res: express.Response) => {
+  res.status(404).json({ message: "接口不存在" });
+});
+
 // Error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (err?.code === "LIMIT_FILE_SIZE") {
@@ -104,7 +119,8 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
     return;
   }
   console.error(err.stack);
-  res.status(500).json({ message: err.message || "服务器内部错误" });
+  // 对外隐藏内部错误细节（Sequelize/R2/网络错误信息可能含表结构、端点等敏感内容）
+  res.status(500).json({ message: "服务器内部错误，请稍后重试" });
 });
 
 export default app;
