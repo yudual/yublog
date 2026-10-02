@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookMarked, ChevronDown, ChevronUp, ArrowRight, Layers } from "lucide-react";
+import { BookMarked, ChevronDown, ChevronUp, ArrowRight, Layers, Pin } from "lucide-react";
 import type { Comment, Post } from "@/lib/types";
 import { formatExactDateTime } from "@/lib/time-format";
 import { resolveAvatarFromHash } from "@/lib/avatar";
@@ -224,7 +224,8 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
               系列合辑 · {totalArticles} 篇
             </span>
             {pinned && (
-              <span className="shrink-0 rounded-[4px] bg-[#ececec] px-2 py-0.5 text-[11px] font-medium leading-tight text-[#9a9a9a] dark:bg-white/[0.1] dark:text-[#9a9a9a]">
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-[4px] bg-neutral-100 px-2 py-0.5 text-[11px] font-medium leading-tight text-neutral-500 dark:bg-white/[0.1] dark:text-neutral-400">
+                <Pin className="h-2.5 w-2.5 rotate-45" />
                 置顶
               </span>
             )}
@@ -239,11 +240,11 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
         )}
 
         {/* 系列合辑聚合卡片 */}
-        <div className="mt-2.5 w-full overflow-hidden rounded-2xl border border-blue-100/90 dark:border-blue-900/40 bg-gradient-to-br from-[#f8faff] via-[#f5f8ff] to-[#edf3ff] dark:from-[#1b1e26] dark:via-[#191d27] dark:to-[#161a24] p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:shadow-md">
+        <div className="mt-2.5 w-full overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-800/80 bg-neutral-50 dark:bg-neutral-900/40 p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:shadow-md">
           {/* 合辑头部 Banner (点击可直达合辑详情专栏) */}
           <Link
             href={`/articles/${post.shortId || post.id}`}
-            className="group/banner flex items-start gap-3 pb-3 border-b border-blue-100/70 dark:border-blue-900/30 hover:opacity-95 transition-opacity"
+            className="group/banner flex items-start gap-3 pb-3 border-b border-neutral-200/70 dark:border-neutral-800/80 hover:opacity-95 transition-opacity"
             title="点击查看完整合辑目录与专栏详情"
           >
             {coverUrl ? (
@@ -334,7 +335,7 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
           )}
 
           {/* 快捷跳转首篇阅读 */}
-          <div className="mt-3 pt-2.5 border-t border-blue-100/60 dark:border-blue-900/30 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
+          <div className="mt-3 pt-2.5 border-t border-neutral-200/60 dark:border-neutral-800/70 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>支持按序连贯阅读</span>
             <Link
               href={firstArticleUrl}

@@ -116,7 +116,7 @@ export default function CollectionReader({ post }: CollectionReaderProps) {
   return (
     <article className="w-full article-content">
       {/* 顶部专栏横幅与封面大图 */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-blue-100 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/60 via-indigo-50/30 to-blue-50/20 dark:from-[#191d27] dark:via-[#161a24] dark:to-[#13161f] p-5 sm:p-8 lg:p-10 shadow-xs mb-8">
+      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-neutral-200/70 dark:border-neutral-800/80 bg-neutral-50 dark:bg-neutral-900/40 p-5 sm:p-8 lg:p-10 shadow-xs mb-8">
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
           {/* 封面缩略图 */}
           {coverUrl ? (

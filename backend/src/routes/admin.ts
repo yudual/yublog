@@ -441,6 +441,12 @@ router.put(
             { where: { id: { [Op.in]: newIds } } }
           );
         }
+
+        // 成员有增减时刷新合辑时间：子文章被 hideInHome 隐藏，若不 bump，
+        // 更新后的合辑仍沉在旧时间位置，首页访客完全感知不到新内容。
+        if ((removedIds.length > 0 || newIds.length > 0) && !collection.pinned) {
+          updates.createdAt = new Date();
+        }
       }
 
       await collection.update(updates);
