@@ -151,6 +151,8 @@ router.post("/confirm", authenticate, requireAdmin, async (req: AuthRequest, res
   }
 
   let promotedFinalKey = "";
+  let stagingKeyToDelete = "";
+  let confirmed = false;
   try {
     const full = await sequelize.transaction(async (transaction) => {
       const intent = await UploadIntent.findOne({
@@ -175,6 +177,7 @@ router.post("/confirm", authenticate, requireAdmin, async (req: AuthRequest, res
         if (existing) return formatMedia(existing);
         throw Object.assign(new Error("文件已经确认上传"), { status: 409 });
       }
+      stagingKeyToDelete = intent.stagingKey;
       if (intent.status !== "pending") throw Object.assign(new Error("上传请求已失效，请重新选择文件"), { status: 410 });
       if (intent.expiresAt.getTime() <= Date.now()) {
         await intent.update({ status: "expired" }, { transaction });
@@ -210,10 +213,15 @@ router.post("/confirm", authenticate, requireAdmin, async (req: AuthRequest, res
       }, { transaction });
       return formatted;
     });
+    confirmed = true;
     res.status(201).json(full);
   } catch (err: any) {
     if (promotedFinalKey) await deleteFromR2(promotedFinalKey);
     res.status(err.status || 500).json({ message: err.message || "登记媒体记录失败" });
+  }
+  if (confirmed && stagingKeyToDelete) {
+    const stagingCleaned = await deleteFromR2(stagingKeyToDelete);
+    if (!stagingCleaned) console.warn(`[media] 暂存文件清理失败: ${stagingKeyToDelete}`);
   }
 });
 

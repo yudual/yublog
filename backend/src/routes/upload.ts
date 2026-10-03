@@ -306,6 +306,10 @@ router.post("/confirm", authenticate, requireAdmin, async (req: AuthRequest, res
     if (promotedFinalKey) await deleteFromR2(promotedFinalKey);
     res.status(err.status || 500).json({ message: err.message || "登记媒体记录失败" });
   }
+  if (confirmed && stagingKeyToDelete) {
+    const stagingCleaned = await deleteFromR2(stagingKeyToDelete);
+    if (!stagingCleaned) console.warn(`[upload] 暂存文件清理失败: ${stagingKeyToDelete}`);
+  }
 });
 
 // 动态照片兼容确认：仍然只允许读取当前管理员自己的暂存对象。
@@ -339,7 +343,12 @@ router.post("/motion-photo/confirm", authenticate, requireAdmin, async (req: Aut
           transaction,
         });
         if (existing) {
-          return { image: existing.url, video: null, isLivePhoto: false, mediaId: existing.id };
+          return {
+            image: existing.url,
+            video: existing.livePhotoVideo || null,
+            isLivePhoto: Boolean(existing.livePhotoVideo),
+            mediaId: existing.id,
+          };
         }
         throw Object.assign(new Error("文件已经确认上传"), { status: 409 });
       }
@@ -362,8 +371,26 @@ router.post("/motion-photo/confirm", authenticate, requireAdmin, async (req: Aut
         const video = await storeBuffer(extracted.video, `${baseName}.mp4`, extracted.videoMime);
         uploadedUrls.push(video.url);
         const [imageMedia, videoMedia] = await Promise.all([
-          Media.create({ filename: `${baseName}.jpg`, url: image.url, storageType: "r2", mimeType: extracted.imageMime, kind: "image", size: extracted.image.length, uploaderId: req.user!.id }, { transaction }),
-          Media.create({ filename: `${baseName}.mp4`, url: video.url, storageType: "r2", mimeType: extracted.videoMime, kind: "video", size: extracted.video.length, uploaderId: req.user!.id }, { transaction }),
+          Media.create({
+            filename: `${baseName}.jpg`,
+            url: image.url,
+            storageType: "r2",
+            mimeType: extracted.imageMime,
+            kind: "image",
+            size: extracted.image.length,
+            uploaderId: req.user!.id,
+            livePhotoVideo: video.url,
+          }, { transaction }),
+          Media.create({
+            filename: `${baseName}.mp4`,
+            url: video.url,
+            storageType: "r2",
+            mimeType: extracted.videoMime,
+            kind: "video",
+            size: extracted.video.length,
+            uploaderId: req.user!.id,
+            livePhotoImage: image.url,
+          }, { transaction }),
         ]);
         const confirmationPayload = { image: imageMedia.url, video: videoMedia.url, isLivePhoto: true };
         await intent.update({

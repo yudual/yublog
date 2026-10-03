@@ -164,6 +164,23 @@ function sortCommentsThreaded<T extends { id: string; replyTo?: string | null; r
   return result;
 }
 
+export function parseCollectionPostIds(val: unknown): string[] {
+  if (Array.isArray(val)) {
+    return val.map((id) => String(id || "").trim()).filter(Boolean);
+  }
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        return parsed.map((id) => String(id || "").trim()).filter(Boolean);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function normalizeMusicPayload(value: unknown) {
   if (value == null) return null;
   if (typeof value !== "object" || Array.isArray(value)) throw new Error("音乐信息格式无效");
@@ -392,10 +409,7 @@ router.get("/", authenticateOptional, async (req: AuthRequest, res: Response) =>
   if (collectionPosts.length > 0) {
     const allChildIds = Array.from(
       new Set(
-        collectionPosts.flatMap((cp: any) => {
-          const ids = typeof cp.collectionPostIds === "string" ? JSON.parse(cp.collectionPostIds) : cp.collectionPostIds;
-          return Array.isArray(ids) ? ids : [];
-        })
+        collectionPosts.flatMap((cp: any) => parseCollectionPostIds(cp.collectionPostIds))
       )
     );
     if (allChildIds.length > 0) {
@@ -405,8 +419,8 @@ router.get("/", authenticateOptional, async (req: AuthRequest, res: Response) =>
       });
       const childMap = new Map(childArticles.map((a: any) => [a.id, a]));
       for (const cp of collectionPosts) {
-        const ids = typeof cp.collectionPostIds === "string" ? JSON.parse(cp.collectionPostIds) : cp.collectionPostIds;
-        (cp as any).collectionArticles = (Array.isArray(ids) ? ids : [])
+        const ids = parseCollectionPostIds(cp.collectionPostIds);
+        (cp as any).collectionArticles = ids
           .map((id: string) => childMap.get(id))
           .filter(Boolean);
       }
@@ -550,8 +564,8 @@ router.get("/:id", authenticateOptional, async (req: AuthRequest, res: Response)
 
   // 1. 若自身为合辑，加载子文章列表
   if (post.type === "collection") {
-    const ids = typeof post.collectionPostIds === "string" ? JSON.parse(post.collectionPostIds) : post.collectionPostIds;
-    if (Array.isArray(ids) && ids.length > 0) {
+    const ids = parseCollectionPostIds(post.collectionPostIds);
+    if (ids.length > 0) {
       const childArticles = await Post.findAll({
         where: { id: { [Op.in]: ids }, status: "published" },
         attributes: ["id", "shortId", "title", "excerpt", "content", "cover", "category", "articleType", "viewCount", "createdAt"],
@@ -565,8 +579,8 @@ router.get("/:id", authenticateOptional, async (req: AuthRequest, res: Response)
       attributes: ["id", "shortId", "title", "cover", "excerpt", "collectionPostIds"],
     });
     if (col) {
-      const ids = typeof col.collectionPostIds === "string" ? JSON.parse(col.collectionPostIds) : col.collectionPostIds;
-      if (Array.isArray(ids) && ids.length > 0) {
+      const ids = parseCollectionPostIds(col.collectionPostIds);
+      if (ids.length > 0) {
         const siblings = await Post.findAll({
           where: { id: { [Op.in]: ids }, status: "published" },
           attributes: ["id", "shortId", "title", "viewCount", "createdAt"],
@@ -932,15 +946,7 @@ router.delete(
             lock: transaction.LOCK.UPDATE,
           });
           if (parentCol && parentCol.collectionPostIds) {
-            let oldIds: string[] = [];
-            if (Array.isArray(parentCol.collectionPostIds)) {
-              oldIds = parentCol.collectionPostIds;
-            } else if (typeof parentCol.collectionPostIds === "string") {
-              try {
-                const parsed = JSON.parse(parentCol.collectionPostIds);
-                if (Array.isArray(parsed)) oldIds = parsed;
-              } catch {}
-            }
+            const oldIds = parseCollectionPostIds(parentCol.collectionPostIds);
             const nextIds = oldIds.filter((id) => id !== postId);
             await parentCol.update({ collectionPostIds: nextIds }, { transaction });
           }
@@ -1024,7 +1030,10 @@ router.post(
       res.status(404).json({ message: "动态不存在" });
       return;
     }
-    const video = post.video as any;
+    let video = post.video as any;
+    if (typeof video === "string") {
+      try { video = JSON.parse(video); } catch { video = null; }
+    }
     if (!video || !video.sourceUrl) {
       res.status(400).json({ message: "该动态没有可解析的视频" });
       return;
