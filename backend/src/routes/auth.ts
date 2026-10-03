@@ -7,6 +7,7 @@ import { generateToken } from "../utils/jwt";
 import { getClientIp } from "../utils/ip";
 import { AuthRequest } from "../middleware/auth";
 import { checkIpRate } from "../middleware/rateLimit";
+import { isValidImageUrl, normalizeImageUrl } from "../utils/web-url";
 
 const router = Router();
 
@@ -103,10 +104,24 @@ router.post(
     body("password").isLength({ min: 6 }),
     body("nickname").trim().isLength({ min: 1, max: 100 }),
     body("username")
-      .optional()
+      .optional({ values: "falsy" })
       .trim()
       .isLength({ min: 3, max: 50 })
-      .matches(/^[a-zA-Z0-9_]+$/),
+      .matches(/^[a-zA-Z0-9_]+$/)
+      .withMessage("用户名需为 3-50 位字母、数字或下划线"),
+    body("avatar")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .custom(isValidImageUrl)
+      .withMessage("头像地址格式无效"),
+    body("cover")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .custom(isValidImageUrl)
+      .withMessage("封面地址格式无效"),
+    body("bio").optional().trim().isLength({ max: 255 }),
   ],
   async (req: Request, res: Response) => {
     // 个人博客默认关闭公开注册通道，防自动化脚本扫描、探测与脏数据写入
@@ -128,10 +143,13 @@ router.post(
     }
 
     const { email, password, nickname, username, avatar, cover, bio } = req.body;
+    const normalizedUsername = typeof username === "string" && username.trim()
+      ? username.trim()
+      : `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
     const existing = await User.findOne({
       where: {
-        [Op.or]: [{ email }, ...(username ? [{ username }] : [])],
+        [Op.or]: [{ email }, { username: normalizedUsername }],
       },
     });
     if (existing) {
@@ -142,12 +160,12 @@ router.post(
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({
       email,
-      username: username || "",
+      username: normalizedUsername,
       password: hashed,
-      nickname,
-      avatar: avatar || "",
-      cover: cover || "",
-      bio: bio || "",
+      nickname: nickname.trim(),
+      avatar: avatar ? (normalizeImageUrl(avatar) || "") : "",
+      cover: cover ? (normalizeImageUrl(cover) || "") : "",
+      bio: bio ? bio.trim() : "",
       role: "visitor",
     });
 

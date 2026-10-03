@@ -12,6 +12,7 @@ import ProfileFadeIn from "@/components/profile/ProfileFadeIn";
 import type { Post } from "@/lib/types";
 import { getApiUrl } from "@/lib/api-fetch";
 import { extractCleanPostId } from "@/lib/share";
+import { toSafeImageUrl } from "@/lib/web-url";
 
 const API_URL = getApiUrl();
 
@@ -88,7 +89,7 @@ export async function generateMetadata({
       (typeof post.music?.cover === "string" ? post.music.cover : "") ||
       post.cover ||
       undefined;
-    const imageUrl = imageRaw && typeof imageRaw === "string" ? imageRaw : undefined;
+    const imageUrl = toSafeImageUrl(imageRaw) || undefined;
 
     return {
       title,

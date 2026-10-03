@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Image, { type ImageProps } from "next/image";
-import { ImageIcon, AlertCircle } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 
 export interface SafeImageProps extends Omit<ImageProps, "onError" | "onLoad"> {
   fallbackSrc?: string;
@@ -32,13 +32,15 @@ export default function SafeImage({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [triedFallback, setTriedFallback] = useState(false);
+  const [prevSrc, setPrevSrc] = useState(src);
 
-  useEffect(() => {
+  if (prevSrc !== src) {
+    setPrevSrc(src);
     setCurrentSrc(src);
     setIsLoaded(false);
     setHasError(false);
     setTriedFallback(false);
-  }, [src]);
+  }
 
   const handleLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     setIsLoaded(true);

@@ -43,9 +43,23 @@ export class DirectUploadError extends Error {
 
 export function toAbsoluteUrl(url: string) {
   if (!url || typeof url !== "string") return "";
-  if (url.startsWith("http")) return url;
-  if (url.startsWith("/uploads/") || url.startsWith("/api/")) return `${BASE_URL}${url}`;
-  return url;
+  const value = url.trim();
+  if (!value) return "";
+  if (value.startsWith("//")) return "";
+  if (value.startsWith("/uploads/") || value.startsWith("/api/")) return `${BASE_URL}${value}`;
+  if (value.startsWith("/")) return value;
+  if (/^[a-z][a-z\d+.-]*:/i.test(value)) {
+    try {
+      const parsed = new URL(value);
+      if (parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "blob:") {
+        return parsed.href;
+      }
+    } catch {
+      // Fall through to the empty safe value below.
+    }
+    return "";
+  }
+  return value;
 }
 
 /** Upgrade http:// to https:// to avoid Mixed Content warnings on HTTPS pages */

@@ -9,7 +9,6 @@ import { getImageSrc, resolveCoverImage } from "@/lib/post-image";
 import { toAbsoluteUrl, toHttps } from "@/lib/upload";
 import { renderContent } from "@/lib/sanitize";
 import { useMusicPlayer } from "@/lib/music-player-store";
-import { useSiteSettings } from "@/lib/site-settings-store";
 import { stripMarkdownAndHtml } from "@/lib/frontmatter";
 
 type TileKind = "image" | "video" | "music" | "link" | "text" | "article";
@@ -81,6 +80,7 @@ function formatMusicInfo(music: PostMusic): { title: string; subtitle?: string }
 
 function FadeThumb({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
+  if (!src) return null;
   return (
     <Image
       src={src}

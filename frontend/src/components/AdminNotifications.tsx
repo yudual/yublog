@@ -9,7 +9,6 @@ import { actorAvatarUrl } from "@/lib/avatar";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { toAbsoluteUrl } from "@/lib/upload";
 import { useExitAnimation } from "@/lib/use-exit-animation";
-import { useSiteSettings } from "@/lib/site-settings-store";
 import { renderTextWithEmoji } from "@/lib/emoji";
 import FadeImage from "@/components/FadeImage";
 

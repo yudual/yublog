@@ -4,12 +4,9 @@ import { useState, useCallback } from "react";
 import { Play } from "lucide-react";
 import type { PostVideo } from "@/lib/types";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeHttpUrl, toSafeImageUrl, toSafeMediaUrl } from "@/lib/web-url";
 import VideoPlayerModal from "./VideoPlayerModal";
 import CustomVideoPlayer from "./CustomVideoPlayer";
-
-import { PUBLIC_API_URL } from "@/lib/api-fetch";
-
-const API_URL = PUBLIC_API_URL;
 
 const PLATFORM_LABELS: Record<string, string> = {
   douyin: "抖音",
@@ -26,12 +23,15 @@ function enhanceBilibiliSrc(rawSrc: string): string {
   const safeSrc = rawSrc.startsWith("//") ? `https:${rawSrc}` : rawSrc;
   try {
     const url = new URL(safeSrc);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+    if (hostname !== "bilibili.com" && !hostname.endsWith(".bilibili.com")) return "";
     if (!url.searchParams.has("high_quality")) url.searchParams.set("high_quality", "1");
     if (!url.searchParams.has("danmaku")) url.searchParams.set("danmaku", "0");
     if (!url.searchParams.has("autoplay")) url.searchParams.set("autoplay", "0");
     return url.toString();
   } catch {
-    return safeSrc;
+    return "";
   }
 }
 
@@ -50,15 +50,13 @@ function VideoInfoBar({ video }: { video: PostVideo }) {
   if (!video.title && !video.author && !video.platform) return null;
   const likeText = formatLike(video.like);
   const sourceUrl = video.sourceUrl;
-  const href = sourceUrl
-    ? (sourceUrl.startsWith("http") ? sourceUrl : `https://${sourceUrl}`)
-    : null;
+  const href = toSafeHttpUrl(sourceUrl);
 
   const content = (
     <>
-      {video.avatar && (
+      {toSafeImageUrl(video.avatar) && (
         <img
-          src={toAbsoluteUrl(video.avatar)}
+          src={toAbsoluteUrl(toSafeImageUrl(video.avatar) || "")}
           alt=""
           className="h-4 w-4 shrink-0 rounded-full object-cover"
         />
@@ -130,7 +128,7 @@ export default function VideoPlayer({ video, postId }: VideoPlayerProps) {
     const src = srcMatch?.[1] || "";
     const enhancedSrc = enhanceBilibiliSrc(src);
     const isBilibili = /bilibili\.com|player\.bilibili/i.test(enhancedSrc);
-    if (!isBilibili) return null;
+    if (!enhancedSrc || !isBilibili) return null;
 
     return (
       <div className="mt-2 max-w-[340px] md:max-w-[500px]">
@@ -160,7 +158,8 @@ export default function VideoPlayer({ video, postId }: VideoPlayerProps) {
 
   // ── 解析视频：封面缩略图 + 播放按钮 → 点击打开弹窗 ──
   if (videoData.source === "parse") {
-    const cover = videoData.cover ? toAbsoluteUrl(videoData.cover) : undefined;
+    const safeCover = toSafeImageUrl(videoData.cover);
+    const cover = safeCover ? toAbsoluteUrl(safeCover) : undefined;
     return (
       <>
         <div className="mt-2 max-w-[300px] md:max-w-[360px]">
@@ -211,8 +210,12 @@ export default function VideoPlayer({ video, postId }: VideoPlayerProps) {
 
 /** 上传/直链视频的内联播放器（使用 CustomVideoPlayer 统一体验） */
 function InlineVideo({ video }: { video: PostVideo }) {
-  const directUrl = toAbsoluteUrl(video.url || "");
-  const cover = video.cover ? toAbsoluteUrl(video.cover) : undefined;
+  const safeVideoUrl = toSafeMediaUrl(video.url);
+  const directUrl = safeVideoUrl ? toAbsoluteUrl(safeVideoUrl) : "";
+  const safeCover = toSafeImageUrl(video.cover);
+  const cover = safeCover ? toAbsoluteUrl(safeCover) : undefined;
+
+  if (!directUrl) return null;
 
   return (
     <div className="mt-2 max-w-[300px]">

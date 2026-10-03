@@ -95,41 +95,23 @@ CommentLike.init(
     indexes: [
       {
         unique: true,
-        fields: ["comment_id", "user_id"],
+        fields: ["commentId", "userId"],
         name: "comment_likes_comment_user_unique",
-        where: {
-          user_id: { [Op.not]: null },
-        },
       },
       {
         unique: true,
-        fields: ["comment_id", "visitor_id"],
+        fields: ["commentId", "visitorId"],
         name: "comment_likes_comment_visitor_unique",
-        where: {
-          visitor_id: { [Op.not]: null },
-          user_id: null,
-        },
       },
       {
         unique: true,
-        fields: ["comment_id", "email"],
+        fields: ["commentId", "email"],
         name: "comment_likes_comment_email_unique",
-        where: {
-          email: { [Op.not]: null },
-          visitor_id: null,
-          user_id: null,
-        },
       },
       {
         unique: true,
-        fields: ["comment_id", "ip"],
+        fields: ["commentId", "ip"],
         name: "comment_likes_comment_ip_unique",
-        where: {
-          ip: { [Op.not]: null },
-          email: null,
-          visitor_id: null,
-          user_id: null,
-        },
       },
     ],
   }

@@ -44,7 +44,7 @@ export async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
   return parsed;
 }
 
-function isPublicIp(ip: string): boolean {
+export function isPublicIp(ip: string): boolean {
   const family = net.isIP(ip);
   if (family === 4) return isPublicIPv4(ip);
   if (family === 6) return isPublicIPv6(ip);
@@ -67,30 +67,47 @@ function isPublicIPv4(ip: string): boolean {
 
 function isPublicIPv6(ip: string): boolean {
   const addr = ip.toLowerCase();
-  // IPv4-mapped ::ffff:a.b.c.d 按原 IPv4 规则判断
-  const v4mapped = addr.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
-  if (v4mapped) return isPublicIPv4(v4mapped[1]);
-  if (addr === "::" || addr === "::1") return false;
+  const groups = parseIPv6Groups(addr);
+  if (!groups) return false;
 
-  let groups: string[];
-  if (addr.includes("::")) {
-    const [head, tail] = addr.split("::");
-    if (addr.split("::").length > 2) return false;
-    const headGroups = head ? head.split(":") : [];
-    const tailGroups = tail ? tail.split(":") : [];
-    const fill = 8 - headGroups.length - tailGroups.length;
-    if (fill < 0) return false;
-    groups = [...headGroups, ...Array(fill).fill("0"), ...tailGroups];
-  } else {
-    groups = addr.split(":");
+  // IPv4-mapped IPv6（包括 ::ffff:7f00:1 这种十六进制写法）必须按 IPv4 规则检查。
+  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xffff) {
+    return isPublicIPv4(`${groups[6] >> 8}.${groups[6] & 0xff}.${groups[7] >> 8}.${groups[7] & 0xff}`);
   }
-  if (groups.length !== 8) return false;
 
-  const first = parseInt(groups[0], 16);
-  if (Number.isNaN(first)) return false;
-  if (first >= 0xfc00 && first <= 0xfdff) return false; // fc00::/7 唯一本地
-  if (first >= 0xfe80 && first <= 0xfebf) return false; // fe80::/10 链路本地
-  if (first >= 0xff00) return false; // ff00::/8 组播
-  if (first === 0x2001 && parseInt(groups[1], 16) === 0x0db8) return false; // 文档保留段
+  // 未指定地址和 loopback 的压缩、展开写法都不能访问。
+  const isZero = groups.every((group) => group === 0);
+  const isLoopback = groups.slice(0, 7).every((group) => group === 0) && groups[7] === 1;
+  if (isZero || isLoopback) return false;
+
+  const first = groups[0];
+  if ((first & 0xfe00) === 0xfc00) return false; // fc00::/7 唯一本地
+  if ((first & 0xffc0) === 0xfe80) return false; // fe80::/10 链路本地
+  if ((first & 0xff00) === 0xff00) return false; // ff00::/8 组播
+  if (first === 0x2001 && groups[1] === 0x0db8) return false; // 文档保留段
   return true;
+}
+
+/** 将合法的 IPv6 文本展开为 8 个 16 位分组。 */
+function parseIPv6Groups(addr: string): number[] | null {
+  if (addr.includes(".")) {
+    const separator = addr.lastIndexOf(":");
+    if (separator < 0) return null;
+    const ipv4 = addr.slice(separator + 1);
+    const parts = ipv4.split(".").map(Number);
+    if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+    const ipv4Groups = [parts[0] * 256 + parts[1], parts[2] * 256 + parts[3]];
+    addr = `${addr.slice(0, separator)}:${ipv4Groups.map((group) => group.toString(16)).join(":")}`;
+  }
+
+  if (addr.split("::").length > 2) return null;
+  const [head, tail] = addr.includes("::") ? addr.split("::") : [addr, ""];
+  const headGroups = head ? head.split(":") : [];
+  const tailGroups = tail ? tail.split(":") : [];
+  const groups = [...headGroups, ...tailGroups];
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+
+  const fill = addr.includes("::") ? 8 - groups.length : 0;
+  if (fill < 0 || (!addr.includes("::") && groups.length !== 8) || (addr.includes("::") && fill === 0)) return null;
+  return [...headGroups, ...Array(fill).fill("0"), ...tailGroups].map((group) => parseInt(group, 16));
 }

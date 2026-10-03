@@ -1,13 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { getClientIp, normalizeEmail, normalizeIp } from "../src/utils/ip";
+import { isPublicIp } from "../src/utils/ssrf-guard";
 import type { Request } from "express";
 
 /** 构造最小化的 mock Request，仅包含 getClientIp 读取的字段 */
-function mockReq(headers: Record<string, string | string[] | undefined>, ip?: string, remoteAddress?: string) {
+function mockReq(
+  headers: Record<string, string | string[] | undefined>,
+  ip?: string,
+  remoteAddress: string | null = "127.0.0.1"
+) {
   return {
     headers,
     ip,
-    connection: { remoteAddress },
+    socket: remoteAddress ? { remoteAddress } : undefined,
+    connection: remoteAddress ? { remoteAddress } : undefined,
   } as unknown as Request;
 }
 
@@ -53,8 +59,22 @@ describe("getClientIp（XFF 伪造防护）", () => {
     expect(getClientIp(req)).toBe("198.51.100.9");
   });
 
+  it("直连非受信任 IP 时忽略伪造的代理头", () => {
+    const req = mockReq(
+      {
+        "eo-real-ip": "114.114.114.114",
+        "cf-connecting-ip": "1.1.1.1",
+        "x-real-ip": "8.8.8.8",
+        "x-forwarded-for": "9.9.9.9",
+      },
+      undefined,
+      "203.0.113.50"
+    );
+    expect(getClientIp(req)).toBe("203.0.113.50");
+  });
+
   it("无代理头时回退 req.ip", () => {
-    const req = mockReq({}, "10.0.0.1");
+    const req = mockReq({}, "10.0.0.1", null);
     expect(getClientIp(req)).toBe("10.0.0.1");
   });
 
@@ -64,7 +84,7 @@ describe("getClientIp（XFF 伪造防护）", () => {
   });
 
   it("无任何身份信息时返回 unknown", () => {
-    expect(getClientIp(mockReq({}))).toBe("unknown");
+    expect(getClientIp(mockReq({}, undefined, null))).toBe("unknown");
   });
 });
 
@@ -77,5 +97,25 @@ describe("normalizeEmail / normalizeIp", () => {
     expect(normalizeIp("::ffff:192.168.1.1")).toBe("192.168.1.1");
     expect(normalizeIp("192.168.1.1")).toBe("192.168.1.1");
     expect(normalizeIp("")).toBe("unknown");
+  });
+});
+
+describe("SSRF IP 防护", () => {
+  it.each([
+    "::1",
+    "0:0:0:0:0:0:0:1",
+    "::ffff:7f00:1",
+    "::ffff:169.254.169.254",
+    "::ffff:c0a8:0101",
+    "fc00::1",
+    "fd12:3456:789a::1",
+    "fe80::1",
+    "ff02::1",
+  ])("拒绝内网或特殊 IPv6 地址 %s", (ip) => {
+    expect(isPublicIp(ip)).toBe(false);
+  });
+
+  it.each(["2001:4860:4860::8888", "::ffff:8.8.8.8"])("允许公网 IPv6 地址 %s", (ip) => {
+    expect(isPublicIp(ip)).toBe(true);
   });
 });

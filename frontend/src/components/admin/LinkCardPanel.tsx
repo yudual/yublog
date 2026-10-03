@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Link2 } from "lucide-react";
 import type { LinkCard } from "@/lib/types";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeImageUrl } from "@/lib/web-url";
 import AdminModal from "./AdminModal";
 
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
@@ -126,10 +127,10 @@ export default function LinkCardPanel({
       {preview && (
         <div className="mt-4 rounded-lg border border-adm-border bg-adm-bg p-3">
           <div className="flex gap-3">
-            {preview.image && (
+            {toSafeImageUrl(preview.image) && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={toAbsoluteUrl(preview.image)}
+                src={toAbsoluteUrl(toSafeImageUrl(preview.image) || "")}
                 alt=""
                 className="h-16 w-16 shrink-0 rounded-lg object-cover"
               />

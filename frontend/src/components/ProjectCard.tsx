@@ -15,6 +15,7 @@ import { apiFetch, PUBLIC_API_URL } from "@/lib/api-fetch";
 import { toast } from "@/lib/toast";
 import { notifyContentUpdated } from "@/lib/content-sync";
 import { sharePost } from "@/lib/share";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 import ActionMenu from "./ActionMenu";
 import InteractionBubble from "./InteractionBubble";
 import CommentSection from "./CommentSection";
@@ -84,8 +85,8 @@ export default function ProjectCard({ post, index, featured = false, variant = "
   const description = useMemo(() => getProjectDescription(post, plainText), [plainText, post]);
   const tags = useMemo(() => getProjectTags(post, plainText), [plainText, post]);
   const detailHref = `/projects/${post.shortId || post.id}`;
-  const projectHref = post.linkCard?.url?.trim() || detailHref;
-  const isExternal = projectHref.startsWith("http");
+  const projectHref = toSafeHttpUrl(post.linkCard?.url);
+  const isExternal = Boolean(projectHref);
 
   // 朋友圈模式下的互动状态
   const [likes, setLikes] = useState<Array<{ name: string; email?: string }>>(post.likes || []);
@@ -233,7 +234,10 @@ export default function ProjectCard({ post, index, featured = false, variant = "
       firstContentImg,
       ...(Array.isArray(post.images) ? post.images.map(getImageSrc) : []),
     ];
-    return Array.from(new Set(values.filter((value): value is string => Boolean(value?.trim())).map((value) => toHttps(toAbsoluteUrl(value.trim())))));
+    return Array.from(new Set(values
+      .map((value) => toSafeImageUrl(value))
+      .filter((value): value is string => Boolean(value))
+      .map((value) => toHttps(toAbsoluteUrl(value)))));
   }, [post.cover, post.linkCard?.image, post.content, post.images]);
   const [imageIndex, setImageIndex] = useState(0);
   const [isFallback, setIsFallback] = useState(false);
@@ -355,7 +359,7 @@ export default function ProjectCard({ post, index, featured = false, variant = "
                     ))}
                   </div>
                   <div className="flex items-center gap-2">
-                    {isExternal ? (
+                    {projectHref ? (
                       <a
                         href={projectHref}
                         target="_blank"
@@ -501,7 +505,7 @@ export default function ProjectCard({ post, index, featured = false, variant = "
           {isExternal ? (
             <>
               <a
-                href={projectHref}
+                href={projectHref || detailHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-emerald-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-emerald-200"

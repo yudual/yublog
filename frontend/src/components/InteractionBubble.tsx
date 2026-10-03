@@ -4,6 +4,7 @@ import type { Comment } from "@/lib/types";
 import { formatCommentTime } from "@/lib/time-format";
 import { renderTextWithEmoji } from "@/lib/emoji";
 import { actorAvatarUrl, cravatarUrlFromHash } from "@/lib/avatar";
+import { toSafeHttpUrl } from "@/lib/web-url";
 
 type LikeInfo = { name: string; avatarHash?: string };
 
@@ -180,6 +181,7 @@ export default function InteractionBubble({
         showAvatars ? (
           <ul className="space-y-2">
             {displayedComments.map((comment) => {
+              const websiteUrl = toSafeHttpUrl(comment.website);
               return (
                 <li key={comment.id} id={`comment-${comment.id}`} className="break-all scroll-mt-20 flex items-start gap-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -193,9 +195,9 @@ export default function InteractionBubble({
                       onClick={() => onReply?.(comment.id)}
                       className="min-w-0 flex-1 cursor-pointer text-left text-[15px] leading-[22px] transition-opacity hover:opacity-70"
                     >
-                      {comment.website ? (
+                      {websiteUrl ? (
                         <a
-                          href={comment.website}
+                          href={websiteUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
@@ -228,15 +230,16 @@ export default function InteractionBubble({
         ) : (
           <ul className="space-y-[3px] text-[15px] font-normal leading-[24px] md:text-[16px]">
             {displayedComments.map((comment) => {
+              const websiteUrl = toSafeHttpUrl(comment.website);
               return (
                 <li key={comment.id} id={`comment-${comment.id}`} className="break-all scroll-mt-20 rounded px-1 -mx-1">
                   <div
                     onClick={() => onReply?.(comment.id)}
                     className="min-w-0 cursor-pointer text-left transition-colors hover:text-wechat-link"
                   >
-                    {comment.website ? (
+                    {websiteUrl ? (
                       <a
-                        href={comment.website}
+                        href={websiteUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}

@@ -540,9 +540,6 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
 
         let targetId = activeArticleId;
         if (isEdit && activeArticleId) {
-          body.music = null;
-          body.linkCard = null;
-          body.video = null;
           const res = await apiFetch(`/posts/${activeArticleId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },

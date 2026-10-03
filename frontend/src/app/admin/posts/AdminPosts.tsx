@@ -30,8 +30,9 @@ export default function AdminPosts({
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [showPublish, setShowPublish] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
-  const [page] = useState(1);
-  const [, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -45,7 +46,12 @@ export default function AdminPosts({
   const fetchPosts = useCallback(() => {
     setLoading(true);
     setLoadError("");
-    apiFetch(`/admin/posts?page=${page}&limit=${PAGE_SIZE}&type=moment`)
+    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE), type: "moment" });
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (selectedCategory !== "all") {
+      params.set("category", selectedCategory);
+    }
+    apiFetch(`/admin/posts?${params.toString()}`)
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
@@ -56,16 +62,18 @@ export default function AdminPosts({
       .then((data) => {
         const dataPosts = Array.isArray(data?.data) ? data.data : [];
         setPosts(dataPosts);
-        setHasMore(data?.pagination?.hasMore ?? false);
+        setTotalPages(Math.max(1, Number(data?.pagination?.totalPages) || 1));
+        setTotalCount(Number(data?.pagination?.total) || dataPosts.length);
       })
       .catch((err) => {
         console.error("加载动态列表异常:", err);
         setPosts([]);
-        setHasMore(false);
+        setTotalPages(1);
+        setTotalCount(0);
         setLoadError(err instanceof Error ? err.message : "动态加载失败，请重试");
       })
       .finally(() => setLoading(false));
-  }, [page]);
+  }, [page, selectedCategory, statusFilter]);
 
   useEffect(() => {
     fetchPosts();
@@ -78,6 +86,8 @@ export default function AdminPosts({
       const res = await apiFetch(`/posts/${id}`, { method: "DELETE" });
       if (res.ok) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
+        if (posts.length === 1 && page > 1) setPage((current) => current - 1);
+        else fetchPosts();
         notifyContentUpdated();
       } else {
         alert("删除失败");
@@ -263,7 +273,10 @@ export default function AdminPosts({
             <button
               key={tab.key}
               type="button"
-              onClick={() => setStatusFilter(tab.key as "all" | "published" | "draft")}
+              onClick={() => {
+                setStatusFilter(tab.key as "all" | "published" | "draft");
+                setPage(1);
+              }}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                 statusFilter === tab.key
                   ? "bg-adm-primary text-adm-primary-text shadow-xs"
@@ -282,7 +295,10 @@ export default function AdminPosts({
             <button
               key={tab.key}
               type="button"
-              onClick={() => setSelectedCategory(tab.key)}
+              onClick={() => {
+                setSelectedCategory(tab.key);
+                setPage(1);
+              }}
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all cursor-pointer ${
                 selectedCategory === tab.key
                   ? "bg-adm-primary text-adm-primary-text shadow-xs"
@@ -332,6 +348,30 @@ export default function AdminPosts({
               />
             </div>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={page <= 1}
+            className="rounded-lg border border-adm-border bg-adm-card px-3 py-1.5 text-xs font-medium text-adm-text disabled:opacity-50 cursor-pointer"
+          >
+            上一页
+          </button>
+          <span className="text-xs text-adm-text-secondary">
+            第 {page} / {totalPages} 页（共 {totalCount} 条）
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            disabled={page >= totalPages}
+            className="rounded-lg border border-adm-border bg-adm-card px-3 py-1.5 text-xs font-medium text-adm-text disabled:opacity-50 cursor-pointer"
+          >
+            下一页
+          </button>
         </div>
       )}
 

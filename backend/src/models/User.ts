@@ -50,7 +50,6 @@ User.init(
       type: DataTypes.STRING(50),
       allowNull: false,
       unique: true,
-      defaultValue: "",
     },
     nickname: {
       type: DataTypes.STRING(100),

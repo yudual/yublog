@@ -5,6 +5,7 @@ import { siteSettingTextDefaults } from "../models/SiteSetting";
 import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
 import { sendTestEmail, DEFAULT_EMAIL_TEMPLATE } from "../services/email-service";
 import { triggerRevalidate } from "../utils/revalidate";
+import { isValidHttpUrl, isValidImageUrl, isValidSocialLinks, normalizeHttpUrl, normalizeImageUrl, normalizeSocialLinks } from "../utils/web-url";
 
 const fontFamilyPattern = /^[\p{L}\p{N} ._-]+$/u;
 
@@ -16,6 +17,27 @@ function isValidFontUrl(value: string): boolean {
     return url.protocol === "https:" && !url.username && !url.password;
   } catch {
     return false;
+  }
+}
+
+function isValidBackgroundImages(value: unknown): boolean {
+  if (typeof value !== "string" || !value.trim()) return true;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) && parsed.every((item) => isValidImageUrl(item));
+  } catch {
+    return false;
+  }
+}
+
+function normalizeBackgroundImages(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) return "[]";
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return "[]";
+    return JSON.stringify(parsed.map((item) => normalizeImageUrl(item)).filter((item): item is string => Boolean(item)));
+  } catch {
+    return "[]";
   }
 }
 
@@ -72,13 +94,13 @@ router.put(
     body("keywords").optional().trim().isLength({ max: 255 }),
     body("domain").optional().trim().isLength({ max: 255 }),
     body("beian").optional().trim().isLength({ max: 100 }),
-    body("beianUrl").optional().trim().isLength({ max: 500 }),
+    body("beianUrl").optional().trim().isLength({ max: 500 }).custom(isValidHttpUrl),
     body("footerHtml").optional().isString().isLength({ max: 5000 }),
-    body("decorationImage").optional().trim().isLength({ max: 500 }),
-    body("faviconUrl").optional().trim().isLength({ max: 500 }),
-    body("ogImage").optional().trim().isLength({ max: 500 }),
-    body("backgroundImages").optional().isString(),
-    body("socialLinks").optional().isString(),
+    body("decorationImage").optional().trim().isLength({ max: 500 }).custom(isValidImageUrl),
+    body("faviconUrl").optional().trim().isLength({ max: 500 }).custom(isValidImageUrl),
+    body("ogImage").optional().trim().isLength({ max: 500 }).custom(isValidImageUrl),
+    body("backgroundImages").optional().isString().isLength({ max: 20000 }).custom(isValidBackgroundImages),
+    body("socialLinks").optional().isString().isLength({ max: 20000 }).custom(isValidSocialLinks),
     body("postCollapseLength").optional().isInt({ min: 0, max: 100000 }),
     body("fontUrl")
       .optional()
@@ -136,13 +158,13 @@ router.put(
       keywords: req.body.keywords ?? setting.keywords,
       domain: req.body.domain ?? setting.domain,
       beian: req.body.beian ?? setting.beian,
-      beianUrl: req.body.beianUrl ?? setting.beianUrl,
+      beianUrl: req.body.beianUrl !== undefined ? normalizeHttpUrl(req.body.beianUrl) || "" : setting.beianUrl,
       footerHtml: req.body.footerHtml ?? setting.footerHtml,
-      decorationImage: req.body.decorationImage ?? setting.decorationImage,
-      faviconUrl: req.body.faviconUrl ?? setting.faviconUrl,
-      ogImage: req.body.ogImage ?? setting.ogImage,
-      backgroundImages: req.body.backgroundImages ?? setting.backgroundImages,
-      socialLinks: req.body.socialLinks ?? setting.socialLinks,
+      decorationImage: req.body.decorationImage !== undefined ? normalizeImageUrl(req.body.decorationImage) || "" : setting.decorationImage,
+      faviconUrl: req.body.faviconUrl !== undefined ? normalizeImageUrl(req.body.faviconUrl) || "" : setting.faviconUrl,
+      ogImage: req.body.ogImage !== undefined ? normalizeImageUrl(req.body.ogImage) || "" : setting.ogImage,
+      backgroundImages: req.body.backgroundImages !== undefined ? normalizeBackgroundImages(req.body.backgroundImages) : setting.backgroundImages,
+      socialLinks: req.body.socialLinks !== undefined ? normalizeSocialLinks(req.body.socialLinks) : setting.socialLinks,
       postCollapseLength: req.body.postCollapseLength ?? setting.postCollapseLength,
       fontUrl,
       fontFamily,

@@ -16,7 +16,6 @@ import {
   Folder,
   Globe,
   Award,
-  List,
   ChevronDown,
   Layers,
   ArrowRight,
@@ -27,13 +26,13 @@ import { resolveAvatarFromHash } from "@/lib/avatar";
 import { getCurrentUser, authFetchHeaders } from "@/lib/auth";
 import { useSiteSettings } from "@/lib/site-settings-store";
 import { toAbsoluteUrl } from "@/lib/upload";
-import { stripMarkdownAndHtml } from "@/lib/frontmatter";
 import { calculateReadingStats } from "@/lib/reading-time";
 import ArticleCommentSection from "@/components/article/ArticleCommentSection";
 import ArticleEmbedContent from "@/components/article/ArticleEmbedContent";
 import MusicEmbedCard from "@/components/article/MusicEmbedCard";
 import VideoPlayer from "@/components/VideoPlayer";
 import { sharePost } from "@/lib/share";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
 
@@ -213,7 +212,9 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
     post.author?.avatarHash,
     80
   );
-  const coverUrl = post.cover && post.cover.trim() ? toAbsoluteUrl(post.cover.trim()) : "";
+  const coverValue = toSafeImageUrl(post.cover);
+  const coverUrl = coverValue ? toAbsoluteUrl(coverValue) : "";
+  const repostUrl = toSafeHttpUrl(post.repostUrl);
 
   const typeConfig =
     ARTICLE_TYPE_CONFIG[post.articleType || "original"] ||
@@ -326,7 +327,7 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
         </div>
 
         {/* 转载来源提示卡 */}
-        {post.articleType === "repost" && post.repostUrl && (
+        {post.articleType === "repost" && repostUrl && (
           <div className="mt-5 flex items-center gap-3 rounded-xl border border-amber-200/80 bg-amber-50/50 p-3.5 dark:border-amber-900/50 dark:bg-amber-950/20 text-xs">
             <Globe className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <div className="min-w-0 flex-1">
@@ -334,12 +335,12 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
                 本文转载自网络，原文链接：
               </span>
               <a
-                href={post.repostUrl}
+                href={repostUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="ml-1 font-medium text-emerald-600 dark:text-emerald-400 hover:underline break-all"
               >
-                {post.repostUrl}
+                {repostUrl}
               </a>
             </div>
             <ExternalLink className="h-3.5 w-3.5 shrink-0 text-neutral-400" />

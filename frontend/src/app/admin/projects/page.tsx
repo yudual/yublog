@@ -22,6 +22,7 @@ import { apiFetch } from "@/lib/api-fetch";
 import { toAbsoluteUrl } from "@/lib/upload";
 import { formatArticleTime } from "@/lib/time-format";
 import { notifyContentUpdated } from "@/lib/content-sync";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 interface ProjectListItem {
   id: string;
@@ -287,9 +288,9 @@ export default function AdminProjectsPage() {
           {filteredProjects.map((project) => {
             const displayTitle = project.title?.trim() || project.linkCard?.title?.trim() || "未命名项目";
             const displayExcerpt = project.excerpt?.trim() || project.content || "暂无简介";
-            const coverImage = project.cover || project.images?.[0] || project.linkCard?.image;
-            const demoUrl = project.linkCard?.url;
-            const repoUrl = project.repostUrl;
+            const coverImage = toSafeImageUrl(project.cover || project.images?.[0] || project.linkCard?.image);
+            const demoUrl = toSafeHttpUrl(project.linkCard?.url);
+            const repoUrl = toSafeHttpUrl(project.repostUrl);
             const tags = parseTagsFromContent(project.content, displayExcerpt);
 
             return (

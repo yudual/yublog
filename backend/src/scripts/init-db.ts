@@ -11,6 +11,7 @@ import { migrateR2MusicFields } from "./migrate-r2-music-fields";
 import { migrateRemoveAds } from "./migrate-remove-ads";
 import { migrateArticleCollections } from "./migrate-article-collections";
 import { migrateIndexes } from "./migrate-indexes";
+import { migrateUploadIntentResult } from "./migrate-upload-intent-result";
 
 const DEFAULT_PLAYLIST_SLUG = "site-default";
 
@@ -113,6 +114,7 @@ export async function initializeDatabase() {
   await migrateR2MusicFields();
   await migrateRemoveAds();
   await migrateArticleCollections();
+  await migrateUploadIntentResult();
   await migrateIndexes();
 
   await ensureSiteSettings();

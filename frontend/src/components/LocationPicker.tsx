@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LocateFixed, Search } from "lucide-react";
+import { LocateFixed } from "lucide-react";
 import { apiFetch } from "@/lib/api-fetch";
 import type { PostLocation } from "@/lib/types";
 import { wgs84ToGcj02 } from "@/lib/coord-transform";

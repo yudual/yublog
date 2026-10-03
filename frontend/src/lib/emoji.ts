@@ -231,7 +231,7 @@ export function shortcodeToHtml(text: string): string {
  */
 export function editableToShortcode(el: HTMLElement): string {
   let result = "";
-  function walk(node: Node, isBlockChild = false) {
+  function walk(node: Node) {
     node.childNodes.forEach((child) => {
       if (child.nodeType === Node.TEXT_NODE) {
         result += child.textContent || "";
@@ -245,7 +245,7 @@ export function editableToShortcode(el: HTMLElement): string {
           result += "\n";
         } else if (tag === "DIV" || tag === "P") {
           if (result && !result.endsWith("\n")) result += "\n";
-          walk(e, true);
+          walk(e);
           if (!result.endsWith("\n")) result += "\n";
         } else {
           walk(e);

@@ -6,6 +6,16 @@ import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
+function isSafeFriendUrl(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value.trim());
+    return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 // GET /api/friends - public list (random order, refresh-shuffled)
 // 不带分页参数时返回全部并随机排序；带 ?page=&limit= 时按创建时间分页（管理后台用）
 router.get("/", async (req: Request, res: Response) => {
@@ -41,7 +51,7 @@ router.post(
   requireAdmin,
   [
     body("name").trim().isLength({ min: 1, max: 100 }),
-    body("url").trim().isLength({ min: 1, max: 500 }),
+    body("url").trim().isLength({ min: 1, max: 500 }).custom(isSafeFriendUrl),
     body("desc").optional().trim().isLength({ max: 255 }),
     body("email").optional().trim().isLength({ max: 255 }),
     body("avatar").optional().trim().isLength({ max: 512 }),
@@ -70,7 +80,7 @@ router.put(
   requireAdmin,
   [
     body("name").optional().trim().isLength({ min: 1, max: 100 }),
-    body("url").optional().trim().isLength({ min: 1, max: 500 }),
+    body("url").optional().trim().isLength({ min: 1, max: 500 }).custom(isSafeFriendUrl),
     body("desc").optional().trim().isLength({ max: 255 }),
     body("email").optional().trim().isLength({ max: 255 }),
     body("avatar").optional().trim().isLength({ max: 512 }),

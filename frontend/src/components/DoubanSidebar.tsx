@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { Film, Book, Music, Star, ExternalLink } from "lucide-react";
 import { getApiUrl } from "@/lib/api-fetch";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 type DoubanStatus = "collect" | "do" | "wish";
 
@@ -332,19 +333,22 @@ export default function DoubanSidebar({
           {items.map((item, i) => (
             <li key={`${item.link}-${i}`}>
               <a
-                href={item.link}
+                href={toSafeHttpUrl(item.link) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex items-start gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-wechat-hover dark:hover:bg-white/5"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={toAbsoluteUrl(item.cover)}
-                  alt={item.title}
-                  loading="lazy"
-                  onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
-                  className="h-12 w-9 shrink-0 rounded-md object-cover bg-wechat-bubble opacity-0 transition-opacity duration-500 dark:bg-white/5"
-                />
+                {toSafeImageUrl(item.cover) ? (
+                  <img
+                    src={toAbsoluteUrl(toSafeImageUrl(item.cover) || "")}
+                    alt={item.title}
+                    loading="lazy"
+                    onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "1"; }}
+                    className="h-12 w-9 shrink-0 rounded-md object-cover bg-wechat-bubble opacity-0 transition-opacity duration-500 dark:bg-white/5"
+                  />
+                ) : (
+                  <div className="h-12 w-9 shrink-0 rounded-md bg-wechat-bubble dark:bg-white/5" />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-2 text-[13px] font-medium leading-snug text-wechat-nickname">
                     {item.title}

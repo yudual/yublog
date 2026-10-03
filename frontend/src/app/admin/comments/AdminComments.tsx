@@ -8,6 +8,7 @@ import { cravatarUrl } from "@/lib/avatar";
 import { apiFetch, getToken } from "@/lib/api-fetch";
 import { renderTextWithEmoji, EMOJI_LIST, shortcodeToHtml, editableToShortcode, emojiImgTag } from "@/lib/emoji";
 import { CommentRowSkeleton } from "@/components/Skeleton";
+import { toSafeHttpUrl } from "@/lib/web-url";
 
 interface AdminComment {
   id: string;
@@ -340,9 +341,9 @@ function CommentDetail({
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="text-sm font-medium text-adm-text">{comment.author}</span>
             <span className="text-xs text-adm-text-tertiary">{comment.email}</span>
-            {comment.website && (
+            {comment.website && (toSafeHttpUrl(comment.website) ? (
               <a
-                href={comment.website.startsWith("http") ? comment.website : `https://${comment.website}`}
+                href={toSafeHttpUrl(comment.website) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-xs text-adm-text-secondary transition-colors hover:text-adm-primary"
@@ -350,7 +351,7 @@ function CommentDetail({
                 <Link2 className="h-3 w-3" />
                 {comment.website}
               </a>
-            )}
+            ) : <span className="text-xs text-adm-text-secondary">{comment.website}</span>)}
             {comment.replyTo && (
               <span className="text-xs text-adm-text-tertiary">
                 回复 <span className="text-adm-text-secondary">{comment.replyTo}</span>
@@ -631,9 +632,9 @@ function CommentMobileCard({
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="text-sm font-medium text-adm-text">{comment.author}</span>
             <span className="text-xs text-adm-text-tertiary">{comment.email}</span>
-            {comment.website && (
+            {comment.website && (toSafeHttpUrl(comment.website) ? (
               <a
-                href={comment.website.startsWith("http") ? comment.website : `https://${comment.website}`}
+                href={toSafeHttpUrl(comment.website) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-0.5 text-xs text-adm-text-secondary transition-colors hover:text-adm-primary"
@@ -641,7 +642,7 @@ function CommentMobileCard({
                 <Link2 className="h-3 w-3" />
                 {comment.website}
               </a>
-            )}
+            ) : <span className="text-xs text-adm-text-secondary">{comment.website}</span>)}
             {comment.replyTo && (
               <span className="text-xs text-adm-text-tertiary">
                 回复 <span className="text-adm-text-secondary">{comment.replyTo}</span>

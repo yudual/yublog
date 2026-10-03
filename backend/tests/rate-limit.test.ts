@@ -14,9 +14,11 @@ describe("checkIpRate（滑动窗口）", () => {
   });
 
   it("不同 IP 互不影响", () => {
-    const a = `10.98.0.${Math.floor(Math.random() * 250)}`;
+    const lastOctet = Math.floor(Math.random() * 250);
+    const a = `10.98.0.${lastOctet}`;
+    const b = `10.98.1.${lastOctet}`;
     for (let i = 0; i < 10; i++) checkIpRate("like-rename", a);
     expect(checkIpRate("like-rename", a).allowed).toBe(false);
-    expect(checkIpRate("like-rename", `${a.slice(0, -1)}9`).allowed).toBe(true);
+    expect(checkIpRate("like-rename", b).allowed).toBe(true);
   });
 });

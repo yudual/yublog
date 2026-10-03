@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import type { Comment, Post } from "@/lib/types";
 import { formatRelativeTime } from "@/lib/time-format";
 import { cravatarUrlFromHash } from "@/lib/avatar";
-import { findParentComment, findRootCommentId } from "@/lib/comment-utils";
+import { findRootCommentId } from "@/lib/comment-utils";
 import { getCurrentUser, CurrentUser } from "@/lib/auth";
 import { EMOJI_LIST, editableToShortcode, renderTextWithEmoji } from "@/lib/emoji";
 import { Smile, ThumbsUp, X, ChevronDown, ChevronUp } from "lucide-react";

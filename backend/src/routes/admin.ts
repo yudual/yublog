@@ -10,6 +10,7 @@ import { siteSettingTextDefaults } from "../models/SiteSetting";
 import { stripMarkdownAndFrontmatter } from "./posts";
 import { generateShortId } from "../utils/short-id";
 import { triggerRevalidate } from "../utils/revalidate";
+import { isValidHttpUrl, isValidImageUrl, normalizeHttpUrl, normalizeImageUrl } from "../utils/web-url";
 
 const router = Router();
 
@@ -170,7 +171,15 @@ router.get("/posts", authenticate, requireAdmin, async (req: AuthRequest, res: R
   }
   const categoryParam = req.query.category as string;
   if (categoryParam) {
-    where.category = categoryParam;
+    if (categoryParam === "岁岁念") {
+      where[Op.or] = [
+        { category: "岁岁念" },
+        { category: "" },
+        { category: { [Op.is]: null } },
+      ];
+    } else {
+      where.category = categoryParam;
+    }
   } else if (typeParam === "article") {
     // 后台文章页不应混入项目分类，否则前端分页后再过滤会造成总数和页码失真。
     where.category = { [Op.ne]: "项目" };
@@ -184,11 +193,17 @@ router.get("/posts", authenticate, requireAdmin, async (req: AuthRequest, res: R
   const keyword = ((req.query.keyword || req.query.search) as string || "").trim();
   if (keyword) {
     const kw = `%${keyword}%`;
-    where[Op.or] = [
+    const keywordWhere = [
       { title: { [Op.like]: kw } },
       { excerpt: { [Op.like]: kw } },
       { category: { [Op.like]: kw } },
     ];
+    if (where[Op.or]) {
+      where[Op.and] = [{ [Op.or]: where[Op.or] }, { [Op.or]: keywordWhere }];
+      delete where[Op.or];
+    } else {
+      where[Op.or] = keywordWhere;
+    }
   }
 
   const { count, rows: posts } = await Post.findAndCountAll({
@@ -302,7 +317,12 @@ router.post(
   [
     body("title").trim().notEmpty().withMessage("合辑名称不能为空").isLength({ max: 200 }),
     body("excerpt").optional().trim().isLength({ max: 500 }),
-    body("cover").optional().trim().isLength({ max: 512 }),
+    body("cover")
+      .optional()
+      .trim()
+      .isLength({ max: 512 })
+      .custom(isValidImageUrl)
+      .withMessage("封面地址格式无效"),
     body("pinned").optional().isBoolean(),
     body("postIds").isArray({ min: 1 }).withMessage("请至少选择一篇文章加入合辑"),
   ],
@@ -317,73 +337,90 @@ router.post(
       const { title, excerpt = "", cover = "", pinned = false, postIds } = req.body;
       const userId = req.user!.id;
       const normalizedPostIds: string[] = Array.from(
-        new Set<string>(postIds.map((id: unknown): string => String(id)))
+        new Set<string>(
+          (Array.isArray(postIds) ? postIds : [])
+            .map((id: unknown): string => String(id || "").trim())
+            .filter(Boolean)
+        )
       );
 
-      // 合辑会直接展示在首页，只允许未归入其他合辑的已发布文章加入。
-      const posts = await Post.findAll({
-        where: {
-          id: { [Op.in]: normalizedPostIds },
-          type: "article",
-          status: "published",
-          category: { [Op.ne]: "项目" },
-          collectionId: null,
-        },
-        attributes: ["id", "title", "cover", "excerpt"],
-      });
-      if (posts.length !== normalizedPostIds.length) {
-        res.status(400).json({ message: "只能选择未加入其他合辑的已发布文章" });
+      if (normalizedPostIds.length === 0) {
+        res.status(400).json({ message: "请至少选择一篇文章加入合辑" });
         return;
       }
 
-      // 封面默认取传参或第一篇选中有封面的文章
-      let finalCover = cover;
-      if (!finalCover) {
-        const firstWithCover = posts.find((p: any) => p.cover && p.cover.trim());
-        finalCover = firstWithCover?.cover || "";
-      }
+      const collection = await sequelize.transaction(async (transaction) => {
+        // 合辑会直接展示在首页，只允许未归入其他合辑的已发布文章加入。
+        const posts = await Post.findAll({
+          where: {
+            id: { [Op.in]: normalizedPostIds },
+            type: "article",
+            status: "published",
+            category: { [Op.ne]: "项目" },
+            collectionId: null,
+          },
+          attributes: ["id", "title", "cover", "excerpt"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (posts.length !== normalizedPostIds.length) {
+          throw Object.assign(new Error("只能选择未加入其他合辑的已发布文章"), { status: 400 });
+        }
 
-      // 简介默认取传参或首篇文章摘要
-      let finalExcerpt = excerpt;
-      if (!finalExcerpt) {
-        finalExcerpt = posts[0]?.excerpt || `包含《${posts[0]?.title}》等 ${posts.length} 篇精选系列文章`;
-      }
+        // 封面默认取传参或第一篇选中有封面的文章
+        let finalCover = cover ? (normalizeImageUrl(cover) || "") : "";
+        if (!finalCover) {
+          const firstWithCover = posts.find((p: any) => p.cover && p.cover.trim());
+          finalCover = firstWithCover?.cover || "";
+        }
 
-      // 创建合辑类型的 Post 记录
-      const shortId = await generateShortId();
-      const collection = await Post.create({
-        userId,
-        shortId,
-        type: "collection",
-        title: title.trim(),
-        excerpt: finalExcerpt.trim(),
-        cover: finalCover,
-        category: "合辑",
-        content: "",
-        images: [],
-        location: null,
-        music: null,
-        linkCard: null,
-        video: null,
-        douban: null,
-        pinned: !!pinned,
-        likesDisabled: false,
-        commentsDisabled: false,
-        ip: "",
-        region: "",
-        articleType: "original",
-        repostUrl: "",
-        status: "published",
-        hideInHome: false,
-        collectionId: null,
-        collectionPostIds: normalizedPostIds,
+        // 简介默认取传参或首篇文章摘要
+        let finalExcerpt = excerpt;
+        if (!finalExcerpt) {
+          finalExcerpt = posts[0]?.excerpt || `包含《${posts[0]?.title}》等 ${posts.length} 篇精选系列文章`;
+        }
+
+        // 创建合辑类型的 Post 记录
+        const shortId = await generateShortId();
+        const createdCollection = await Post.create(
+          {
+            userId,
+            shortId,
+            type: "collection",
+            title: title.trim(),
+            excerpt: finalExcerpt.trim(),
+            cover: finalCover,
+            category: "合辑",
+            content: "",
+            images: [],
+            location: null,
+            music: null,
+            linkCard: null,
+            video: null,
+            douban: null,
+            pinned: !!pinned,
+            likesDisabled: false,
+            commentsDisabled: false,
+            ip: "",
+            region: "",
+            articleType: "original",
+            repostUrl: "",
+            status: "published",
+            hideInHome: false,
+            collectionId: null,
+            collectionPostIds: normalizedPostIds,
+          },
+          { transaction }
+        );
+
+        // 批量将选中的子文章标记为属于此合辑，且在首页普通流中隐藏
+        await Post.update(
+          { collectionId: createdCollection.id, hideInHome: true },
+          { where: { id: { [Op.in]: normalizedPostIds } }, transaction }
+        );
+
+        return createdCollection;
       });
-
-      // 批量将选中的子文章标记为属于此合辑，且在首页普通流中隐藏
-      await Post.update(
-        { collectionId: collection.id, hideInHome: true },
-        { where: { id: { [Op.in]: normalizedPostIds } } }
-      );
 
       triggerRevalidate(["/", "/articles"]).catch(() => {});
 
@@ -400,7 +437,7 @@ router.post(
       });
     } catch (err: any) {
       console.error("创建合辑失败:", err);
-      res.status(500).json({ message: err.message || "创建合辑失败" });
+      res.status(err.status || 500).json({ message: err.message || "创建合辑失败" });
     }
   }
 );
@@ -414,7 +451,12 @@ router.put(
     param("id").isUUID(),
     body("title").optional().trim().notEmpty().isLength({ max: 200 }),
     body("excerpt").optional().trim().isLength({ max: 500 }),
-    body("cover").optional().trim().isLength({ max: 512 }),
+    body("cover")
+      .optional()
+      .trim()
+      .isLength({ max: 512 })
+      .custom(isValidImageUrl)
+      .withMessage("封面地址格式无效"),
     body("pinned").optional().isBoolean(),
     body("postIds").optional().isArray(),
   ],
@@ -426,53 +468,89 @@ router.put(
     }
 
     try {
-      const collection = await Post.findOne({ where: { id: req.params.id, type: "collection" } });
-      if (!collection) {
-        res.status(404).json({ message: "合辑不存在" });
-        return;
-      }
+      const collection = await sequelize.transaction(async (transaction) => {
+        const target = await Post.findOne({
+          where: { id: req.params.id, type: "collection" },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!target) {
+          throw Object.assign(new Error("合辑不存在"), { status: 404 });
+        }
 
-      const { title, excerpt, cover, pinned, postIds } = req.body;
-      const updates: any = {};
-      if (title !== undefined) updates.title = title.trim();
-      if (excerpt !== undefined) updates.excerpt = excerpt.trim();
-      if (cover !== undefined) updates.cover = cover.trim();
-      if (pinned !== undefined) updates.pinned = !!pinned;
+        const { title, excerpt, cover, pinned, postIds } = req.body;
+        const updates: any = {};
+        if (title !== undefined) updates.title = title.trim();
+        if (excerpt !== undefined) updates.excerpt = excerpt.trim();
+        if (cover !== undefined) updates.cover = cover ? (normalizeImageUrl(cover) || "") : "";
+        if (pinned !== undefined) updates.pinned = !!pinned;
 
-      if (Array.isArray(postIds)) {
-        updates.collectionPostIds = postIds;
-        const oldIds: string[] = tryParseJson<string[]>(collection.collectionPostIds, []);
-        const removedIds = oldIds.filter((id) => !postIds.includes(id));
-        const newIds = postIds.filter((id) => !oldIds.includes(id));
-
-        if (removedIds.length > 0) {
-          await Post.update(
-            { collectionId: null, hideInHome: false },
-            { where: { id: { [Op.in]: removedIds }, collectionId: collection.id } }
+        if (Array.isArray(postIds)) {
+          const normalizedPostIds = Array.from(
+            new Set<string>(
+              postIds
+                .map((id: unknown): string => String(id || "").trim())
+                .filter(Boolean)
+            )
           );
-        }
-        if (newIds.length > 0) {
-          await Post.update(
-            { collectionId: collection.id, hideInHome: true },
-            { where: { id: { [Op.in]: newIds } } }
-          );
+
+          if (normalizedPostIds.length > 0) {
+            // 校验成员合法性：已发布、类型为文章、非项目、未归属于其他合辑
+            const validPosts = await Post.findAll({
+              where: {
+                id: { [Op.in]: normalizedPostIds },
+                type: "article",
+                status: "published",
+                category: { [Op.ne]: "项目" },
+                [Op.or]: [
+                  { collectionId: null },
+                  { collectionId: target.id },
+                ],
+              },
+              attributes: ["id"],
+              transaction,
+              lock: transaction.LOCK.UPDATE,
+            });
+
+            if (validPosts.length !== normalizedPostIds.length) {
+              throw Object.assign(new Error("只能选择未加入其他合辑的已发布文章"), { status: 400 });
+            }
+          }
+
+          updates.collectionPostIds = normalizedPostIds;
+          const oldIds: string[] = tryParseJson<string[]>(target.collectionPostIds, []);
+          const removedIds = oldIds.filter((id) => !normalizedPostIds.includes(id));
+          const newIds = normalizedPostIds.filter((id) => !oldIds.includes(id));
+
+          if (removedIds.length > 0) {
+            await Post.update(
+              { collectionId: null, hideInHome: false },
+              { where: { id: { [Op.in]: removedIds }, collectionId: target.id }, transaction }
+            );
+          }
+          if (newIds.length > 0) {
+            await Post.update(
+              { collectionId: target.id, hideInHome: true },
+              { where: { id: { [Op.in]: newIds } }, transaction }
+            );
+          }
+
+          // 成员有增减时刷新合辑时间
+          if ((removedIds.length > 0 || newIds.length > 0) && !target.pinned) {
+            updates.createdAt = new Date();
+          }
         }
 
-        // 成员有增减时刷新合辑时间：子文章被 hideInHome 隐藏，若不 bump，
-        // 更新后的合辑仍沉在旧时间位置，首页访客完全感知不到新内容。
-        if ((removedIds.length > 0 || newIds.length > 0) && !collection.pinned) {
-          updates.createdAt = new Date();
-        }
-      }
-
-      await collection.update(updates);
+        await target.update(updates, { transaction });
+        return target;
+      });
 
       triggerRevalidate(["/", "/articles"]).catch(() => {});
 
       res.json({ message: "合辑更新成功", data: collection });
     } catch (err: any) {
       console.error("更新合辑失败:", err);
-      res.status(500).json({ message: err.message || "更新合辑失败" });
+      res.status(err.status || 500).json({ message: err.message || "更新合辑失败" });
     }
   }
 );
@@ -485,27 +563,32 @@ router.delete(
   [param("id").isUUID()],
   async (req: AuthRequest, res: Response) => {
     try {
-      const collection = await Post.findOne({ where: { id: req.params.id, type: "collection" } });
-      if (!collection) {
-        res.status(404).json({ message: "合辑不存在" });
-        return;
-      }
+      await sequelize.transaction(async (transaction) => {
+        const collection = await Post.findOne({
+          where: { id: req.params.id, type: "collection" },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!collection) {
+          throw Object.assign(new Error("合辑不存在"), { status: 404 });
+        }
 
-      // 将归属于该合辑的所有文章全部恢复独立显示
-      await Post.update(
-        { collectionId: null, hideInHome: false },
-        { where: { collectionId: collection.id } }
-      );
+        // 将归属于该合辑的所有文章全部恢复独立显示
+        await Post.update(
+          { collectionId: null, hideInHome: false },
+          { where: { collectionId: collection.id }, transaction }
+        );
 
-      // 删除合辑记录
-      await collection.destroy();
+        // 删除合辑记录
+        await collection.destroy({ transaction });
+      });
 
       triggerRevalidate(["/", "/articles"]).catch(() => {});
 
       res.json({ message: "合辑已成功解散，所有文章已恢复在首页独立展示" });
     } catch (err: any) {
       console.error("解散合辑失败:", err);
-      res.status(500).json({ message: err.message || "解散合辑失败" });
+      res.status(err.status || 500).json({ message: err.message || "解散合辑失败" });
     }
   }
 );
@@ -518,28 +601,33 @@ router.post(
   [param("id").isUUID(), body("postId").isUUID().withMessage("文章 ID 格式无效")],
   async (req: AuthRequest, res: Response) => {
     try {
-      const collection = await Post.findOne({ where: { id: req.params.id, type: "collection" } });
-      if (!collection) {
-        res.status(404).json({ message: "合辑不存在" });
-        return;
-      }
+      await sequelize.transaction(async (transaction) => {
+        const collection = await Post.findOne({
+          where: { id: req.params.id, type: "collection" },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!collection) {
+          throw Object.assign(new Error("合辑不存在"), { status: 404 });
+        }
 
-      const { postId } = req.body;
-      const oldIds: string[] = tryParseJson<string[]>(collection.collectionPostIds, []);
-      const newIds = oldIds.filter((id) => id !== postId);
-      await collection.update({ collectionPostIds: newIds });
+        const { postId } = req.body;
+        const oldIds: string[] = tryParseJson<string[]>(collection.collectionPostIds, []);
+        const newIds = oldIds.filter((id) => id !== postId);
+        await collection.update({ collectionPostIds: newIds }, { transaction });
 
-      await Post.update(
-        { collectionId: null, hideInHome: false },
-        { where: { id: postId, collectionId: collection.id } }
-      );
+        await Post.update(
+          { collectionId: null, hideInHome: false },
+          { where: { id: postId, collectionId: collection.id }, transaction }
+        );
+      });
 
       triggerRevalidate(["/", "/articles"]).catch(() => {});
 
       res.json({ message: "文章已成功移出合辑，将在首页恢复独立展示" });
     } catch (err: any) {
       console.error("移出合辑失败:", err);
-      res.status(500).json({ message: err.message || "移出合辑失败" });
+      res.status(err.status || 500).json({ message: err.message || "移出合辑失败" });
     }
   }
 );
@@ -552,9 +640,24 @@ router.put(
   [
     body("nickname").optional().trim().isLength({ min: 1, max: 100 }),
     body("bio").optional().trim().isLength({ max: 255 }),
-    body("website").optional().trim().isLength({ max: 255 }),
-    body("avatar").optional().trim().isLength({ max: 500 }),
-    body("cover").optional().trim().isLength({ max: 500 }),
+    body("website")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .custom(isValidHttpUrl)
+      .withMessage("网站地址格式无效"),
+    body("avatar")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .custom(isValidImageUrl)
+      .withMessage("头像地址格式无效"),
+    body("cover")
+      .optional()
+      .trim()
+      .isLength({ max: 500 })
+      .custom(isValidImageUrl)
+      .withMessage("封面地址格式无效"),
     body("email").optional().trim().isEmail().normalizeEmail(),
     body("username")
       .optional()
@@ -594,11 +697,11 @@ router.put(
     }
 
     await user.update({
-      nickname: req.body.nickname ?? user.nickname,
-      bio: req.body.bio ?? user.bio,
-      website: req.body.website ?? user.website,
-      avatar: req.body.avatar ?? user.avatar,
-      cover: req.body.cover ?? user.cover,
+      nickname: req.body.nickname !== undefined ? req.body.nickname.trim() : user.nickname,
+      bio: req.body.bio !== undefined ? req.body.bio.trim() : user.bio,
+      website: req.body.website !== undefined ? (req.body.website ? normalizeHttpUrl(req.body.website) || "" : "") : user.website,
+      avatar: req.body.avatar !== undefined ? (req.body.avatar ? normalizeImageUrl(req.body.avatar) || "" : "") : user.avatar,
+      cover: req.body.cover !== undefined ? (req.body.cover ? normalizeImageUrl(req.body.cover) || "" : "") : user.cover,
       email: req.body.email ?? user.email,
       username: req.body.username ?? user.username,
     });
@@ -621,6 +724,7 @@ router.put(
 router.post(
   "/change-password",
   authenticate,
+  requireAdmin,
   [
     body("oldPassword").isLength({ min: 1 }),
     body("newPassword").isLength({ min: 6 }),
@@ -702,7 +806,7 @@ router.put(
     param("id").isUUID(),
     body("author").trim().isLength({ min: 1, max: 100 }),
     body("email").optional({ checkFalsy: true }).trim().isEmail().normalizeEmail(),
-    body("website").optional({ nullable: true }).trim().isLength({ max: 255 }),
+    body("website").optional({ nullable: true }).trim().isLength({ max: 255 }).custom(isValidHttpUrl),
     body("content").trim().isLength({ min: 1, max: 10000 }),
   ],
   async (req: AuthRequest, res: Response) => {
@@ -728,7 +832,7 @@ router.put(
     await comment.update({
       authorName: req.body.author.trim(),
       email: req.body.email?.trim().toLowerCase() || "",
-      website: req.body.website?.trim() || undefined,
+      website: normalizeHttpUrl(req.body.website) || "",
       content: req.body.content.trim(),
     });
 

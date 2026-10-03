@@ -201,7 +201,7 @@ export function buildStagingKey(intentId: string, originalName: string): string 
   return `staging/${intentId}/${uuidv4()}${ext}`;
 }
 
-/** 将用户上传的暂存对象提升为不可变的公开媒体对象。 */
+/** 将用户上传的暂存对象复制为不可变的公开媒体对象。注意：不在此处删除暂存对象，由调用方在数据库事务提交后删除，以保证事务失败时暂存对象完好，支持安全重试。 */
 export async function promoteR2Object(
   stagingKey: string,
   finalKey: string,
@@ -218,7 +218,6 @@ export async function promoteR2Object(
       CacheControl: "public, max-age=31536000, immutable",
     })
   );
-  await client.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: stagingKey }));
   return publicUrlFor(cfg, finalKey);
 }
 

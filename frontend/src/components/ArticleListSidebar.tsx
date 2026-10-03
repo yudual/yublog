@@ -4,8 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BookText } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useSiteSettings } from "@/lib/site-settings-store";
-import { toAbsoluteUrl } from "@/lib/upload";
 import { resolveCoverImage } from "@/lib/post-image";
 import DoubanSidebar from "./DoubanSidebar";
 

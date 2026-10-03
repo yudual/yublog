@@ -48,7 +48,6 @@ export default function CommentSection({
   connected = false,
   autoFocus = false,
 }: CommentSectionProps) {
-  const [comments, setComments] = useState<Comment[]>(initialComments);
   const [content, setContent] = useState("");
   const [replyTo, setReplyTo] = useState<string | undefined>(initialReplyTo);
   // replyTo 存储父评论 ID；显示用名字需用 ID 查找
@@ -73,10 +72,6 @@ export default function CommentSection({
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    setComments(initialComments);
-  }, [initialComments]);
 
   // 同步外部传入的回复目标，并同步聚焦输入框（useLayoutEffect 保证在用户手势栈内）
   useLayoutEffect(() => {
@@ -171,7 +166,6 @@ export default function CommentSection({
         return;
       }
       const newComment = await res.json();
-      setComments((prev) => [...prev, newComment]);
       onCommentAdded?.(newComment);
 
       // 游客填写昵称后，更新其历史点赞的显示名（从"访客"变为昵称）

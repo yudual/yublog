@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { SiteSetting } from "../models";
 import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
+import { getClientIp } from "../utils/ip";
 
 const router = Router();
 
@@ -192,14 +193,10 @@ router.get(
     }
 
     // 获取真实客户端 IP（穿透代理）
-    const ip =
-      (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
-      (req.headers["x-real-ip"] as string) ||
-      req.ip ||
-      "";
+    const ip = getClientIp(req);
 
     const params = new URLSearchParams({ key: amapKey });
-    if (ip) params.set("ip", ip);
+    if (ip !== "unknown") params.set("ip", ip);
 
     try {
       const resp = await fetch(

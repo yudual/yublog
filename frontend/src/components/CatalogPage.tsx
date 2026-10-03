@@ -1,5 +1,6 @@
 import type { User } from "@/lib/types";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 import SpecialPageLayout from "@/components/SpecialPageLayout";
 
 export type CatalogCollection = "equipment" | "labs";
@@ -54,11 +55,11 @@ export default function CatalogPage({ owner, title, description, categories, sho
                         className="group overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_8px_24px_-18px_rgba(0,0,0,0.4)] transition-colors hover:bg-[#fcfcfc] dark:border-white/10 dark:bg-[#28282d] dark:hover:bg-[#303036]"
                       >
                         <div className="relative flex aspect-[16/9] items-center justify-center bg-white p-5 dark:bg-[#f7f7f7]">
-                          {item.imageUrl ? (
+                          {toSafeImageUrl(item.imageUrl) ? (
                             // 外部 URL 无法在构建期预先列入 Next Image 白名单，统一使用原生图片。
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={toAbsoluteUrl(item.imageUrl)}
+                              src={toAbsoluteUrl(toSafeImageUrl(item.imageUrl) || "")}
                               alt={item.title}
                               className="h-full w-full object-contain p-5"
                             />
@@ -67,9 +68,9 @@ export default function CatalogPage({ owner, title, description, categories, sho
                           )}
                         </div>
                         <div className="p-4">
-                          {linkTitles && item.linkUrl ? (
+                          {linkTitles && toSafeHttpUrl(item.linkUrl) ? (
                             <a
-                              href={item.linkUrl}
+                              href={toSafeHttpUrl(item.linkUrl) || undefined}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[16px] font-semibold text-wechat-text transition-colors hover:text-wechat-nickname dark:text-white"

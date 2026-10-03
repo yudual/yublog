@@ -93,47 +93,29 @@ Like.init(
     sequelize,
     tableName: "likes",
     indexes: [
-      // 维度 1：已登录用户 — userId 非空即匹配
+      // 维度 1：已登录用户 — userId
       {
         unique: true,
-        fields: ["post_id", "user_id"],
+        fields: ["postId", "userId"],
         name: "likes_post_user_unique",
-        where: {
-          user_id: { [Op.not]: null },
-        },
       },
-      // 维度 2：cookie 游客 — visitorId 非空、userId 空（防止登录后又匹配到 cookie 维度）
+      // 维度 2：cookie 游客 — visitorId
       {
         unique: true,
-        fields: ["post_id", "visitor_id"],
+        fields: ["postId", "visitorId"],
         name: "likes_post_visitor_unique",
-        where: {
-          visitor_id: { [Op.not]: null },
-          user_id: null,
-        },
       },
-      // 维度 3：填邮箱访客 — email 非空、visitorId 和 userId 空
+      // 维度 3：填邮箱访客 — email
       {
         unique: true,
-        fields: ["post_id", "email"],
+        fields: ["postId", "email"],
         name: "likes_post_email_unique",
-        where: {
-          email: { [Op.not]: null },
-          visitor_id: null,
-          user_id: null,
-        },
       },
-      // 维度 4：纯匿名访客 — ip 非空、email/visitorId/userId 空
+      // 维度 4：纯匿名访客 — ip
       {
         unique: true,
-        fields: ["post_id", "ip"],
+        fields: ["postId", "ip"],
         name: "likes_post_ip_unique",
-        where: {
-          ip: { [Op.not]: null },
-          email: null,
-          visitor_id: null,
-          user_id: null,
-        },
       },
     ],
   }

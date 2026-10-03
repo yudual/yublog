@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Loader2, X, Video, Upload, Link2, Code2, Play } from "lucide-react";
+import { Loader2, Video, Upload, Link2, Code2, Play } from "lucide-react";
 import type { PostVideo } from "@/lib/types";
 import { toAbsoluteUrl, uploadVideo } from "@/lib/upload";
+import { toSafeImageUrl } from "@/lib/web-url";
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
 import AdminModal from "./AdminModal";
 
@@ -307,10 +308,10 @@ export default function VideoPanel({
             <div className="space-y-3">
               <div className="relative flex items-center gap-3 rounded-lg border border-adm-border bg-adm-bg p-3">
                 <div className="h-14 w-20 shrink-0 overflow-hidden rounded bg-adm-input">
-                  {result.cover ? (
+                  {toSafeImageUrl(result.cover) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={toAbsoluteUrl(result.cover)}
+                      src={toAbsoluteUrl(toSafeImageUrl(result.cover) || "")}
                       alt=""
                       className="h-full w-full object-cover"
                     />

@@ -7,6 +7,7 @@ import type { Post, User } from "@/lib/types";
 import { resolveAvatar } from "@/lib/avatar";
 import { SocialIcon, getSocialPlatform } from "@/components/SocialIcons";
 import type { CSSProperties } from "react";
+import { toSafeHttpUrl } from "@/lib/web-url";
 
 export interface MomentsSiteSettings {
   siteName?: string;
@@ -79,7 +80,12 @@ export function MomentsLeftSidebar({
             <div className="mt-4 flex flex-wrap justify-center gap-2 border-t border-black/[0.04] dark:border-white/[0.05] pt-3 w-full">
               {socialLinks.slice(0, 6).map((link, idx) => {
                 const platform = getSocialPlatform(link.type);
-                const href = link.type === "email" ? `mailto:${link.url}` : link.url;
+                const href = link.type === "email"
+                  ? (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(link.url.replace(/^mailto:/i, ""))
+                    ? `mailto:${link.url.replace(/^mailto:/i, "")}`
+                    : null)
+                  : toSafeHttpUrl(link.url);
+                if (!href) return null;
                 return (
                   <a
                     key={idx}

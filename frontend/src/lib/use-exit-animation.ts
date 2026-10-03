@@ -25,7 +25,9 @@ export function useExitAnimation(onClose: () => void, duration = 180) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 用 ref 保存最新的 onClose，避免 handleClose 因 onClose 变化而频繁重建
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   const handleClose = useCallback(() => {
     if (closing) return; // 防抖：已在关闭中，忽略重复调用

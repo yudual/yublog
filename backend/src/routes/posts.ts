@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { body, param, validationResult } from "express-validator";
 import { Op, fn, col } from "sequelize";
+import sequelize from "../config/database";
 import { Post, Comment, Like, CommentLike, User, SiteSetting, Media } from "../models";
 import { authenticate, authenticateOptional, AuthRequest, requireAdmin } from "../middleware/auth";
 import { getClientIp } from "../utils/ip";
@@ -16,6 +17,7 @@ import { buildIdentity } from "../utils/identity";
 import { loadCommentLikeStats } from "../utils/comment-like-stats";
 import { enforceCommentGuard } from "../utils/comment-guard";
 import { resolveReplyToEmail } from "../utils/comment-utils";
+import { isValidHttpUrl, isValidLinkCard, normalizeHttpUrl, normalizeLinkCard } from "../utils/web-url";
 import { sanitizeCommentContent, sanitizeDisplayName, isProbablyEmail } from "../utils/sanitize";
 import { shouldCountView } from "../utils/view-dedup";
 
@@ -608,13 +610,13 @@ router.post(
     body("cover").optional().trim().isLength({ max: 512 }),
     body("category").optional().trim().isLength({ max: 50 }),
     body("articleType").optional().isIn(["original", "repost", "ai"]),
-    body("repostUrl").optional().trim().isLength({ max: 500 }),
+    body("repostUrl").optional({ nullable: true }).trim().isLength({ max: 500 }).custom(isValidHttpUrl),
     body("content").optional().trim(),
     body("images").optional().isArray(),
     body("location").optional({ nullable: true }).isObject(),
     body("region").optional().trim().isLength({ max: 100 }),
     body("music").optional().isObject(),
-    body("linkCard").optional({ nullable: true }).isObject(),
+    body("linkCard").optional({ nullable: true }).isObject().custom(isValidLinkCard),
     body("video").optional({ nullable: true }).isObject(),
     body("douban").optional({ nullable: true }).isObject(),
     body("likesDisabled").optional().isBoolean(),
@@ -654,6 +656,12 @@ router.post(
     } = req.body;
 
     const normalizedMusic = await validateR2MusicPayload(music, req.user!.id);
+    const normalizedRepostUrl = normalizeHttpUrl(repostUrl) || "";
+    const normalizedLinkCard = linkCard === null ? null : normalizeLinkCard(linkCard);
+    if (linkCard !== null && !normalizedLinkCard) {
+      res.status(400).json({ message: "链接卡片包含无效 URL" });
+      return;
+    }
 
     const ip = getClientIp(req);
     const ipRegion = await getRegionByIp(ip);
@@ -671,12 +679,12 @@ router.post(
           cover,
           category,
           articleType,
-          repostUrl,
+          repostUrl: normalizedRepostUrl,
           content,
           images,
           location,
           music: normalizedMusic,
-          linkCard,
+          linkCard: normalizedLinkCard,
           video,
           douban,
           likesDisabled,
@@ -734,13 +742,13 @@ router.put(
     body("cover").optional({ nullable: true }).trim().isLength({ max: 2048 }),
     body("category").optional({ nullable: true }).trim().isLength({ max: 50 }),
     body("articleType").optional().isIn(["original", "repost", "ai"]),
-    body("repostUrl").optional().trim().isLength({ max: 500 }),
+    body("repostUrl").optional({ nullable: true }).trim().isLength({ max: 500 }).custom(isValidHttpUrl),
     body("content").optional().trim(),
     body("images").optional().isArray(),
     body("location").optional({ nullable: true }).isObject(),
     body("region").optional({ nullable: true }).trim().isLength({ max: 100 }),
     body("music").optional({ nullable: true }).isObject(),
-    body("linkCard").optional({ nullable: true }).isObject(),
+    body("linkCard").optional({ nullable: true }).isObject().custom(isValidLinkCard),
     body("video").optional({ nullable: true }).isObject(),
     body("douban").optional({ nullable: true }).isObject(),
     body("likesDisabled").optional().isBoolean(),
@@ -765,6 +773,16 @@ router.put(
     const normalizedMusic = req.body.music !== undefined
       ? await validateR2MusicPayload(req.body.music, req.user!.id)
       : post.music;
+    const normalizedRepostUrl = req.body.repostUrl !== undefined
+      ? normalizeHttpUrl(req.body.repostUrl) || ""
+      : post.repostUrl;
+    const normalizedLinkCard = req.body.linkCard !== undefined
+      ? (req.body.linkCard === null ? null : normalizeLinkCard(req.body.linkCard))
+      : post.linkCard;
+    if (req.body.linkCard !== undefined && req.body.linkCard !== null && !normalizedLinkCard) {
+      res.status(400).json({ message: "链接卡片包含无效 URL" });
+      return;
+    }
 
     const incomingPinned = req.body.pinned;
     const finalPinned = incomingPinned !== undefined ? incomingPinned : post.pinned;
@@ -778,13 +796,13 @@ router.put(
       cover: req.body.cover !== undefined ? req.body.cover : post.cover,
       category: req.body.category !== undefined ? req.body.category : post.category,
       articleType: req.body.articleType !== undefined ? req.body.articleType : post.articleType,
-      repostUrl: req.body.repostUrl !== undefined ? req.body.repostUrl : post.repostUrl,
+      repostUrl: normalizedRepostUrl,
       content: req.body.content !== undefined ? req.body.content : post.content,
       images: req.body.images !== undefined ? req.body.images : post.images,
       location: req.body.location !== undefined ? req.body.location : post.location,
       region: req.body.region !== undefined ? req.body.region : post.region,
       music: normalizedMusic,
-      linkCard: req.body.linkCard !== undefined ? req.body.linkCard : post.linkCard,
+      linkCard: normalizedLinkCard,
       video: req.body.video !== undefined ? req.body.video : post.video,
       douban: req.body.douban !== undefined ? req.body.douban : post.douban,
       likesDisabled: req.body.likesDisabled !== undefined ? req.body.likesDisabled : post.likesDisabled,
@@ -865,54 +883,72 @@ router.delete(
     }
 
     try {
-      // 支持 UUID 或 shortId 查找
-      const post = await Post.findOne({
-        where: {
-          [Op.or]: [{ id: idParam }, { shortId: idParam }, { id: rawParam }, { shortId: rawParam }],
-        },
-      });
+      let deletedPath = "";
+      await sequelize.transaction(async (transaction) => {
+        // 支持 UUID 或 shortId 查找并锁行
+        const post = await Post.findOne({
+          where: {
+            [Op.or]: [{ id: idParam }, { shortId: idParam }, { id: rawParam }, { shortId: rawParam }],
+          },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
 
-      if (!post) {
-        res.status(404).json({ message: "内容不存在或已被删除" });
-        return;
-      }
-
-      const postId = post.id;
-      const deletedPath = getCanonicalPostPath(post);
-
-      // 1. 级联清理所有关联的评论点赞 (CommentLike) 和评论 (Comment)
-      const comments = await Comment.findAll({
-        where: { postId },
-        attributes: ["id"],
-      });
-      const commentIds = comments.map((c) => c.id);
-      if (commentIds.length > 0) {
-        await CommentLike.destroy({ where: { commentId: { [Op.in]: commentIds } } }).catch(() => {});
-        await Comment.destroy({ where: { id: { [Op.in]: commentIds } } }).catch(() => {});
-      }
-
-      // 2. 级联清理所有点赞 (Like)
-      await Like.destroy({ where: { postId } }).catch(() => {});
-
-      // 3. 处理系列合辑从属关系解绑
-      if (post.type === "collection") {
-        // 若自身为合辑卡片，将包含的子文章恢复独立展示
-        await Post.update(
-          { collectionId: null, hideInHome: false },
-          { where: { collectionId: postId } }
-        ).catch(() => {});
-      } else if (post.collectionId) {
-        // 若自身归属于某合辑，从该合辑的有序子文章 ID 列表中剔除
-        const parentCol = await Post.findOne({ where: { id: post.collectionId, type: "collection" } });
-        if (parentCol && parentCol.collectionPostIds) {
-          const oldIds: string[] = Array.isArray(parentCol.collectionPostIds) ? parentCol.collectionPostIds : [];
-          const nextIds = oldIds.filter((id) => id !== postId);
-          await parentCol.update({ collectionPostIds: nextIds }).catch(() => {});
+        if (!post) {
+          throw Object.assign(new Error("内容不存在或已被删除"), { status: 404 });
         }
-      }
 
-      // 4. 彻底删除文章/动态记录
-      await post.destroy();
+        const postId = post.id;
+        deletedPath = getCanonicalPostPath(post);
+
+        // 1. 级联清理所有关联的评论点赞 (CommentLike) 和评论 (Comment)
+        const comments = await Comment.findAll({
+          where: { postId },
+          attributes: ["id"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        const commentIds = comments.map((c) => c.id);
+        if (commentIds.length > 0) {
+          await CommentLike.destroy({ where: { commentId: { [Op.in]: commentIds } }, transaction });
+          await Comment.destroy({ where: { id: { [Op.in]: commentIds } }, transaction });
+        }
+
+        // 2. 级联清理所有点赞 (Like)
+        await Like.destroy({ where: { postId }, transaction });
+
+        // 3. 处理系列合辑从属关系解绑
+        if (post.type === "collection") {
+          // 若自身为合辑卡片，将包含的子文章恢复独立展示
+          await Post.update(
+            { collectionId: null, hideInHome: false },
+            { where: { collectionId: postId }, transaction }
+          );
+        } else if (post.collectionId) {
+          // 若自身归属于某合辑，从该合辑的有序子文章 ID 列表中剔除
+          const parentCol = await Post.findOne({
+            where: { id: post.collectionId, type: "collection" },
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          });
+          if (parentCol && parentCol.collectionPostIds) {
+            let oldIds: string[] = [];
+            if (Array.isArray(parentCol.collectionPostIds)) {
+              oldIds = parentCol.collectionPostIds;
+            } else if (typeof parentCol.collectionPostIds === "string") {
+              try {
+                const parsed = JSON.parse(parentCol.collectionPostIds);
+                if (Array.isArray(parsed)) oldIds = parsed;
+              } catch {}
+            }
+            const nextIds = oldIds.filter((id) => id !== postId);
+            await parentCol.update({ collectionPostIds: nextIds }, { transaction });
+          }
+        }
+
+        // 4. 彻底删除文章/动态记录
+        await post.destroy({ transaction });
+      });
 
       // 5. 触发全站关键页面与自身详情页的 ISR 缓存失效，确保前台立即移除已删除内容
       triggerRevalidate([
@@ -928,7 +964,7 @@ router.delete(
       res.status(204).send();
     } catch (err: any) {
       console.error("[delete post error]:", err);
-      res.status(500).json({ message: err.message || "删除内容失败" });
+      res.status(err.status || 500).json({ message: err.message || "删除内容失败" });
     }
   }
 );
@@ -965,8 +1001,9 @@ router.patch(
 // skipCache=1 时跳过内存缓存（播放失败自动重试时使用）。
 router.post(
   "/:id/refresh-video",
+  authenticateOptional,
   param("id").isUUID(),
-  async (req: Request, res: Response) => {
+  async (req: AuthRequest, res: Response) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
@@ -979,6 +1016,11 @@ router.post(
     }
     const post = await Post.findByPk(req.params.id as string);
     if (!post) {
+      res.status(404).json({ message: "动态不存在" });
+      return;
+    }
+    const isAdminOrAuthor = req.user?.role === "admin" || (req.user?.id && req.user.id === post.userId);
+    if (post.status !== "published" && !isAdminOrAuthor) {
       res.status(404).json({ message: "动态不存在" });
       return;
     }
@@ -1012,7 +1054,7 @@ router.post(
     body("content").trim().isLength({ min: 1, max: 10_000 }),
     body("authorName").trim().isLength({ min: 1, max: 100 }),
     body("email").trim().isEmail().normalizeEmail(),
-    body("website").optional().trim().isLength({ max: 255 }),
+    body("website").optional().trim().isLength({ max: 255 }).custom(isValidHttpUrl),
     body("replyTo").optional().trim().isLength({ max: 100 }),
     body("replyToEmail").optional().trim().isEmail().normalizeEmail(),
     body("replyToId").optional({ checkFalsy: true }).isUUID(),
@@ -1029,6 +1071,10 @@ router.post(
     });
     if (!post) {
       res.status(404).json({ message: "动态不存在" });
+      return;
+    }
+    if (post.commentsDisabled) {
+      res.status(403).json({ message: "该动态已关闭评论", code: "COMMENTS_DISABLED" });
       return;
     }
 
@@ -1079,7 +1125,7 @@ router.post(
       postId: post.id,
       authorName: req.body.authorName,
       email,
-      website: req.body.website || null,
+      website: normalizeHttpUrl(req.body.website) || undefined,
       replyTo: req.body.replyTo || null,
       replyToEmail: replyToEmail ?? undefined,
       replyToId: req.body.replyToId || null,

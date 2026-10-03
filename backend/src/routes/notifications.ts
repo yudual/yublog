@@ -1,6 +1,6 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { Post, Comment, Like, User } from "../models";
-import { verifyToken } from "../utils/jwt";
+import { authenticateOptional, AuthRequest } from "../middleware/auth";
 import { getClientIp } from "../utils/ip";
 import { checkIpRate } from "../middleware/rateLimit";
 
@@ -75,7 +75,7 @@ function normalizeEmail(email?: string) {
  * 1. 博主：Header Authorization Bearer token → 返回自己所有动态的赞/评论/回复
  * 2. 访客：Query ?email=xxx → 返回回复给该邮箱的评论通知
  */
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", authenticateOptional, async (req: AuthRequest, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page || "1")) || 1);
     const limit = Math.max(1, Math.min(50, parseInt(String(req.query.limit || "10")) || 10));
@@ -83,14 +83,15 @@ router.get("/", async (req: Request, res: Response) => {
     const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
     if (token) {
-      let decoded: import("../utils/jwt").TokenPayload;
-      try {
-        decoded = verifyToken(token);
-      } catch {
+      if (!req.user) {
         res.status(401).json({ message: "登录令牌已过期或无效，请重新登录" });
         return;
       }
-      const adminId = decoded.id;
+      if (req.user.role !== "admin") {
+        res.status(403).json({ message: "需要管理员权限" });
+        return;
+      }
+      const adminId = req.user.id;
       const adminUser = await User.findByPk(adminId, { attributes: ["nickname", "cover"] });
       const adminNickname = adminUser?.nickname || "";
       const adminCover = adminUser?.cover || "";

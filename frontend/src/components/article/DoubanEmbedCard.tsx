@@ -3,6 +3,7 @@
 import { Film } from "lucide-react";
 import type { PostDouban } from "@/lib/types";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 import LazyImage from "@/components/LazyImage";
 
 interface DoubanEmbedCardProps {
@@ -22,15 +23,15 @@ export default function DoubanEmbedCard({ item, className }: DoubanEmbedCardProp
 
   return (
     <a
-      href={item.link}
+      href={toSafeHttpUrl(item.link) || undefined}
       target="_blank"
       rel="noopener noreferrer"
       className={`link-card ${className || ""}`}
     >
-      {item.cover ? (
+      {toSafeImageUrl(item.cover) ? (
         <span className="link-card-image">
           <LazyImage
-            src={toAbsoluteUrl(item.cover)}
+            src={toAbsoluteUrl(toSafeImageUrl(item.cover) || "")}
             alt=""
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = "none";

@@ -14,6 +14,8 @@ interface UploadIntentAttributes {
   stagingKey: string;
   finalKey: string;
   status: UploadIntentStatus;
+  /** JSON encoded confirmation response, used to make multi-file confirmation retry-safe. */
+  resultJson: string | null;
   expiresAt: Date;
   confirmedAt: Date | null;
   createdAt: Date;
@@ -22,7 +24,7 @@ interface UploadIntentAttributes {
 
 interface UploadIntentCreationAttributes extends Optional<
   UploadIntentAttributes,
-  "id" | "status" | "confirmedAt" | "createdAt" | "updatedAt"
+  "id" | "status" | "resultJson" | "confirmedAt" | "createdAt" | "updatedAt"
 > {}
 
 class UploadIntent
@@ -38,6 +40,7 @@ class UploadIntent
   declare stagingKey: string;
   declare finalKey: string;
   declare status: UploadIntentStatus;
+  declare resultJson: string | null;
   declare expiresAt: Date;
   declare confirmedAt: Date | null;
   declare readonly createdAt: Date;
@@ -86,6 +89,12 @@ UploadIntent.init(
       allowNull: false,
       defaultValue: "pending",
     },
+    resultJson: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+      field: "result_json",
+    },
     expiresAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -108,8 +117,8 @@ UploadIntent.init(
     sequelize,
     tableName: "upload_intents",
     indexes: [
-      { fields: ["uploader_id", "status", "expires_at"] },
-      { fields: ["expires_at"] },
+      { fields: ["uploaderId", "status", "expiresAt"] },
+      { fields: ["expiresAt"] },
     ],
   }
 );

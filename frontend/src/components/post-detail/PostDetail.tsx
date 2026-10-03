@@ -12,12 +12,13 @@ import { resolveAvatarFromHash } from "@/lib/avatar";
 import { normalizeImages, resolveCoverImage } from "@/lib/post-image";
 import { toHttps } from "@/lib/upload";
 import { renderContent } from "@/lib/sanitize";
-import { getCurrentUser, authFetchHeaders } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { useMusicPlayer, getStaticMusicUrl } from "@/lib/music-player-store";
 import { getGlobalAudio } from "@/lib/global-audio";
 import { useEditPost } from "@/lib/edit-post-store";
 import { toast } from "@/lib/toast";
 import { sharePost } from "@/lib/share";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 import ImageGrid from "@/components/ImageGrid";
 import VideoPlayer from "@/components/VideoPlayer";
 import InteractionBubble from "@/components/InteractionBubble";
@@ -242,6 +243,8 @@ export default function PostDetail({ post }: PostDetailProps) {
   const displayName = post.author?.nickname || "用户";
   const authorAvatar = resolveAvatarFromHash(post.author?.avatar, post.author?.avatarHash, 96);
   const musicInfo = post.music ? formatMusicInfo(post.music) : null;
+  const safeLinkUrl = toSafeHttpUrl(post.linkCard?.url);
+  const safeLinkImage = toSafeImageUrl(post.linkCard?.image);
   const articles = post.collectionArticles || [];
   const totalArticles = articles.length;
 
@@ -407,17 +410,17 @@ export default function PostDetail({ post }: PostDetailProps) {
         )}
 
         {/* Link card */}
-        {post.linkCard && (
+        {post.linkCard && safeLinkUrl && (
           <a
-            href={post.linkCard.url}
+            href={safeLinkUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-2 flex w-full max-w-[240px] md:max-w-[280px] items-stretch overflow-hidden rounded-[8px] bg-[#f2f2f2] transition-colors hover:bg-[#eaeaea] active:bg-[#e0e0e0] dark:bg-[#2a2a30] dark:hover:bg-[#33333a] dark:active:bg-[#3a3a42]"
           >
             <div className="flex h-[72px] w-[72px] shrink-0 md:h-[80px] md:w-[80px] items-center justify-center overflow-hidden bg-black/[0.02] dark:bg-white/[0.02]">
-              {post.linkCard.image && (
+              {safeLinkImage && (
                 <LazyImage
-                  src={post.linkCard.image}
+                  src={safeLinkImage}
                   alt=""
                   className="h-full w-full object-contain p-1.5"
                 />
@@ -425,7 +428,7 @@ export default function PostDetail({ post }: PostDetailProps) {
             </div>
             <div className="flex min-w-0 flex-1 flex-col justify-center bg-white/35 px-3 dark:bg-white/[0.04]">
               <p className="line-clamp-1 text-[14px] font-medium leading-[20px] text-black/[0.87] dark:text-white/90 md:text-[15px] md:leading-[21px]">
-                {post.linkCard.title || post.linkCard.url}
+                {post.linkCard.title || safeLinkUrl}
               </p>
               {post.linkCard.description && (
                 <p className="line-clamp-2 mt-0.5 text-[12px] leading-[15px] text-black/50 dark:text-white/50 md:text-[13px] md:leading-[16px]">

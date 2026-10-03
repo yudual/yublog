@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo } from "react";
 import { useSiteSettings } from "@/lib/site-settings-store";
+import { toSafeHttpUrl } from "@/lib/web-url";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 /**
  * 全局底部：版权与备案信息。
@@ -18,16 +20,17 @@ export default function Footer({ className = "" }: { className?: string } = {}) 
     fetchSettings();
   }, [fetchSettings]);
 
-  const href = beianUrl || "https://beian.miit.gov.cn";
+  const href = toSafeHttpUrl(beianUrl) || "https://beian.miit.gov.cn";
 
   // 解析 footerHtml 中的多行内容（如果用户显式写了 <br>，则分为版权行和备案/附注行）
   const { line1, line2, isMultiLine } = useMemo(() => {
     if (!footerHtml) return { line1: "", line2: "", isMultiLine: false };
-    const parts = footerHtml.split(/<br\s*\/?>/i).map((p) => p.trim()).filter(Boolean);
+    const safeHtml = sanitizeHtml(footerHtml);
+    const parts = safeHtml.split(/<br\s*\/?>/i).map((p) => p.trim()).filter(Boolean);
     if (parts.length > 1) {
       return { line1: parts[0], line2: parts.slice(1).join(" "), isMultiLine: true };
     }
-    return { line1: footerHtml, line2: "", isMultiLine: false };
+    return { line1: safeHtml, line2: "", isMultiLine: false };
   }, [footerHtml]);
 
   if (!loaded || (!footerHtml && !beian)) return null;

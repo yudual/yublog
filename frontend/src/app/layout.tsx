@@ -7,6 +7,7 @@ import EmojiFadeController from "@/components/EmojiFadeController";
 import FloatingNav from "@/components/navigation/FloatingNav";
 import GlobalMusicManager from "@/components/GlobalMusicManager";
 import { getApiUrl } from "@/lib/api-fetch";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 const API_URL = getApiUrl();
 
@@ -70,12 +71,11 @@ export async function generateMetadata(): Promise<Metadata> {
       : "Dual 的个人空间与技术博客 · 记录思考、技术随笔与日常动态。";
 
   // 社交分享卡片配图优先级：后台配图 -> 博主封面 -> 博主头像 -> 默认兜底图
-  const rawOgImage = ogImage || ownerCover || ownerAvatar || "/avatar-owner.svg";
+  const cleanDomain = toSafeHttpUrl(domain) || "https://yugold.top/";
+  const rawOgImage = toSafeImageUrl(ogImage) || toSafeImageUrl(ownerCover) || toSafeImageUrl(ownerAvatar) || "/avatar-owner.svg";
   const resolvedOgImage = rawOgImage.startsWith("http")
     ? rawOgImage
-    : `${domain ? domain.replace(/\/+$/, "") : ""}${rawOgImage.startsWith("/") ? rawOgImage : `/${rawOgImage}`}`;
-
-  const cleanDomain = domain ? domain.replace(/\/+$/, "") : "https://yugold.top";
+    : new URL(rawOgImage, cleanDomain).href;
 
   const metadata: Metadata = {
     title: {
@@ -109,8 +109,9 @@ export async function generateMetadata(): Promise<Metadata> {
     },
   };
 
-  const faviconFullUrl = faviconUrl
-    ? (faviconUrl.startsWith("http") ? faviconUrl : `${cleanDomain}${faviconUrl.startsWith("/") ? faviconUrl : `/${faviconUrl}`}`)
+  const safeFavicon = toSafeImageUrl(faviconUrl);
+  const faviconFullUrl = safeFavicon
+    ? (safeFavicon.startsWith("http") ? safeFavicon : new URL(safeFavicon, cleanDomain).href)
     : "";
 
   metadata.icons = {
@@ -145,7 +146,7 @@ export default async function RootLayout({
     if (settingsRes.ok) {
       const settings = await settingsRes.json();
       if (settings.fontUrl && settings.fontFamily) {
-        fontUrl = settings.fontUrl;
+        fontUrl = toSafeHttpUrl(settings.fontUrl) || "";
         fontFamily = settings.fontFamily;
       }
       if (typeof settings.rssEnabled === "boolean") rssEnabled = settings.rssEnabled;

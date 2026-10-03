@@ -29,6 +29,7 @@ export interface ParsedVideo {
 }
 
 const DIRECT_PLAYBACK_SUFFIXES = ["yximgs.com", "ndcimgs.com"];
+const MAX_PROXY_BYTES = 32 * 1024 * 1024;
 
 function matchesHostSuffix(hostname: string, suffixes: string[]): boolean {
   const host = hostname.toLowerCase().replace(/\.$/, "");
@@ -101,6 +102,19 @@ function inferReferer(hostname: string): string {
 /** 检查是否为允许的视频 CDN 域名（防止被滥用为开放代理） */
 function isAllowedVideoHost(hostname: string): boolean {
   return matchesVideoHost(hostname);
+}
+
+function capProxyRange(value: string | undefined): { header: string; requested: boolean } | null {
+  if (!value) return { header: "", requested: false };
+  const match = value.match(/^bytes=(\d+)-(\d*)$/);
+  if (!match) return null;
+  const start = Number(match[1]);
+  if (!Number.isSafeInteger(start)) return null;
+  if (start > Number.MAX_SAFE_INTEGER - MAX_PROXY_BYTES + 1) return null;
+  const requestedEnd = match[2] ? Number(match[2]) : start + MAX_PROXY_BYTES - 1;
+  if (!Number.isSafeInteger(requestedEnd) || requestedEnd < start) return null;
+  const end = Math.min(requestedEnd, start + MAX_PROXY_BYTES - 1);
+  return { header: `bytes=${start}-${end}`, requested: true };
 }
 
 /**
@@ -311,6 +325,12 @@ router.get("/refresh", async (req: Request, res: Response) => {
 // 视频代理：绕过 CDN 防盗链，通过后端转发视频流给浏览器。
 // 支持 Range 请求（视频拖动进度条），自动添加 Referer 和 User-Agent。
 router.get("/proxy", async (req: Request, res: Response) => {
+  const rate = checkIpRate("video-proxy", getClientIp(req));
+  if (!rate.allowed) {
+    res.status(429).json({ message: "视频请求过于频繁，请稍后再试", retryAfter: rate.retryAfter });
+    return;
+  }
+
   const url = req.query.url as string;
   if (!url || typeof url !== "string") {
     res.status(400).json({ message: "缺少 url 参数" });
@@ -336,14 +356,18 @@ router.get("/proxy", async (req: Request, res: Response) => {
   }
 
   const referer = inferReferer(parsedUrl.hostname);
-  const range = req.headers.range;
+  const range = capProxyRange(req.headers.range);
+  if (!range) {
+    res.status(416).json({ message: "不支持的 Range 请求" });
+    return;
+  }
 
   const headers: Record<string, string> = {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   };
   if (referer) headers["Referer"] = referer;
-  if (range) headers["Range"] = range;
+  if (range.requested) headers["Range"] = range.header;
 
   try {
     const resp = await axios.get(url, {
@@ -372,6 +396,13 @@ router.get("/proxy", async (req: Request, res: Response) => {
       return;
     }
 
+    const upstreamLength = Number(resp.headers["content-length"] || 0);
+    if (upstreamLength > MAX_PROXY_BYTES) {
+      resp.data.destroy();
+      res.status(413).json({ message: "单次视频分片过大，请重新请求视频" });
+      return;
+    }
+
     res.status(resp.status);
     const contentType = resp.headers["content-type"];
     const contentLength = resp.headers["content-length"];
@@ -382,6 +413,13 @@ router.get("/proxy", async (req: Request, res: Response) => {
     res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Cache-Control", "private, no-store");
 
+    let streamedBytes = 0;
+    resp.data.on("data", (chunk: Buffer | string) => {
+      streamedBytes += Buffer.byteLength(chunk);
+      if (streamedBytes > MAX_PROXY_BYTES) {
+        resp.data.destroy(new Error("视频分片超过大小限制"));
+      }
+    });
     const destroyUpstream = () => {
       if (!resp.data.destroyed) resp.data.destroy();
     };

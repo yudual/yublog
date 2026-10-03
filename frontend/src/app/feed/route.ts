@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiUrl } from "@/lib/api-fetch";
 import { stripMarkdownAndHtml } from "@/lib/frontmatter";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 const API_URL = getApiUrl();
 
@@ -107,7 +108,7 @@ export async function GET() {
       const settings = await settingsRes.json();
       if (settings.siteName) siteName = settings.siteName;
       if (settings.description) description = settings.description;
-      if (settings.domain) domain = settings.domain;
+      if (settings.domain) domain = toSafeHttpUrl(settings.domain) || domain;
       if (typeof settings.rssEnabled === "boolean") rssEnabled = settings.rssEnabled;
       if (typeof settings.rssIncludeMoments === "boolean") rssIncludeMoments = settings.rssIncludeMoments;
     }
@@ -143,16 +144,18 @@ export async function GET() {
 
           // 构建完整内容：封面图 + 媒体 + 文字
           let content = "";
-          if (post.cover) {
-            const coverUrl = post.cover.startsWith("http") ? post.cover : `${domain}${post.cover}`;
+          const safeCover = toSafeImageUrl(post.cover);
+          if (safeCover) {
+            const coverUrl = safeCover.startsWith("http") ? safeCover : `${domain}${safeCover}`;
             content += `<img src="${escapeXml(coverUrl)}" alt="${escapeXml(title)}" /><br/>`;
           }
           // 内联图片（兼容字符串 URL 和 Live Photo 对象 {src, video} 两种格式）
           const images = Array.isArray(post.images) ? post.images : [];
           for (const img of images) {
             const imgSrc = typeof img === "string" ? img : img?.src;
-            if (!imgSrc) continue;
-            const imgUrl = imgSrc.startsWith("http") ? imgSrc : `${domain}${imgSrc}`;
+            const safeImage = toSafeImageUrl(imgSrc);
+            if (!safeImage) continue;
+            const imgUrl = safeImage.startsWith("http") ? safeImage : `${domain}${safeImage}`;
             content += `<img src="${escapeXml(imgUrl)}" /><br/>`;
           }
           // 文字内容（不截断，完整输出）

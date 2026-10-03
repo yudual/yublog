@@ -7,72 +7,23 @@ import { Router, Request, Response } from "express";
 import path from "path";
 import { Op } from "sequelize";
 import { param, validationResult } from "express-validator";
-import { CatalogItem, Media, MusicTrack, Post, UploadIntent, User, getMediaCategory, type MediaKind } from "../models";
+import { CatalogItem, Media, MusicTrack, Post, UploadIntent, User, getMediaCategory, sequelize, type MediaKind } from "../models";
 import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
 import { deleteStoredFile, isR2Ready } from "../services/storage-service";
+import { DIRECT_UPLOAD_RULES, getDirectUploadRule } from "../utils/upload-rules";
 import {
   buildObjectKey,
   buildStagingKey,
   createPresignedUploadForKey,
+  deleteFromR2,
   downloadFromR2,
   extractR2Key,
   promoteR2Object,
   statR2Object,
+  getR2PublicUrl,
 } from "../services/r2-service";
 
 const router = Router();
-
-const DIRECT_UPLOAD_RULES = {
-  image: {
-    mimes: new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]),
-    extensions: new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]),
-    maxSize: 20 * 1024 * 1024,
-  },
-  video: {
-    mimes: new Set(["video/quicktime", "video/mp4", "video/webm", "video/3gpp", "video/3gp", "video/x-m4v"]),
-    extensions: new Set([".mp4", ".mov", ".webm", ".3gp", ".m4v"]),
-    maxSize: 100 * 1024 * 1024,
-  },
-  audio: {
-    mimes: new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg", "audio/aac", "audio/mp4", "audio/flac", "audio/opus"]),
-    extensions: new Set([".mp3", ".wav", ".ogg", ".aac", ".m4a", ".flac", ".opus"]),
-    maxSize: 50 * 1024 * 1024,
-  },
-  lyric: {
-    mimes: new Set(["text/plain", "text/x-lrc", "application/x-lrc", "application/octet-stream"]),
-    extensions: new Set([".lrc"]),
-    maxSize: 1 * 1024 * 1024,
-  },
-  file: {
-    mimes: new Set<string>(),
-    extensions: new Set<string>(),
-    maxSize: 50 * 1024 * 1024,
-  },
-} as const;
-
-type DirectUploadKind = keyof typeof DIRECT_UPLOAD_RULES;
-
-function getDirectUploadRule(kind: unknown, filename: string, mimeType: unknown) {
-  if (typeof kind !== "string" || !(kind in DIRECT_UPLOAD_RULES)) {
-    throw new Error("不支持的上传类型");
-  }
-  if (typeof filename !== "string" || !filename.trim() || filename.length > 255) {
-    throw new Error("文件名无效");
-  }
-  if (typeof mimeType !== "string" || !mimeType) {
-    throw new Error("文件类型无效");
-  }
-
-  const rule = DIRECT_UPLOAD_RULES[kind as DirectUploadKind];
-  const ext = path.extname(filename).toLowerCase();
-  if (kind === "file") {
-    const blocked = new Set(["text/html", "application/javascript", "application/xhtml+xml", "image/svg+xml"]);
-    if (blocked.has(mimeType)) throw new Error("不支持此文件类型");
-  } else if (!rule.mimes.has(mimeType) || !rule.extensions.has(ext)) {
-    throw new Error("文件扩展名或 MIME 类型不被允许");
-  }
-  return { kind: kind as DirectUploadKind, rule };
-}
 
 /** 格式化媒体记录为 API 响应 */
 function formatMedia(media: any) {
@@ -199,49 +150,70 @@ router.post("/confirm", authenticate, requireAdmin, async (req: AuthRequest, res
     return;
   }
 
+  let promotedFinalKey = "";
   try {
-    const intent = await UploadIntent.findOne({ where: { id: intentId, uploaderId: req.user!.id } });
-    if (!intent) {
-      res.status(404).json({ message: "上传请求不存在" });
-      return;
-    }
-    if (intent.status === "confirmed") {
-      res.status(409).json({ message: "文件已经确认上传" });
-      return;
-    }
-    if (intent.expiresAt.getTime() <= Date.now()) {
-      await intent.update({ status: "expired" });
-      res.status(410).json({ message: "上传请求已过期，请重新选择文件" });
-      return;
-    }
+    const full = await sequelize.transaction(async (transaction) => {
+      const intent = await UploadIntent.findOne({
+        where: { id: intentId, uploaderId: req.user!.id },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!intent) throw Object.assign(new Error("上传请求不存在"), { status: 404 });
+      if (intent.status === "confirmed") {
+        if (intent.resultJson) {
+          try {
+            return JSON.parse(intent.resultJson);
+          } catch {
+            // fallback to database lookup
+          }
+        }
+        const existing = await Media.findOne({
+          where: { url: getR2PublicUrl(intent.finalKey), uploaderId: intent.uploaderId },
+          include: [{ model: User, as: "uploader", attributes: ["id", "username", "nickname"] }],
+          transaction,
+        });
+        if (existing) return formatMedia(existing);
+        throw Object.assign(new Error("文件已经确认上传"), { status: 409 });
+      }
+      if (intent.status !== "pending") throw Object.assign(new Error("上传请求已失效，请重新选择文件"), { status: 410 });
+      if (intent.expiresAt.getTime() <= Date.now()) {
+        await intent.update({ status: "expired" }, { transaction });
+        throw Object.assign(new Error("上传请求已过期，请重新选择文件"), { status: 410 });
+      }
 
-    const object = await statR2Object(intent.stagingKey);
-    if (!object || object.size <= 0) {
-      res.status(400).json({ message: "未找到已上传的文件，请重新上传" });
-      return;
-    }
-    if (object.size > Number(intent.maxSize) || object.contentType !== intent.mimeType) {
-      res.status(400).json({ message: "上传文件与已批准的类型或大小不匹配" });
-      return;
-    }
+      const object = await statR2Object(intent.stagingKey);
+      if (!object || object.size <= 0) throw Object.assign(new Error("未找到已上传的文件，请重新上传"), { status: 400 });
+      if (object.size > Number(intent.maxSize) || object.contentType !== intent.mimeType) {
+        throw Object.assign(new Error("上传文件与已批准的类型或大小不匹配"), { status: 400 });
+      }
 
-    const url = await promoteR2Object(intent.stagingKey, intent.finalKey, intent.mimeType);
-    const media = await Media.create({
-      filename: intent.filename,
-      url,
-      storageType: "r2",
-      mimeType: intent.mimeType,
-      kind: intent.kind,
-      size: object.size,
-      uploaderId: intent.uploaderId,
+      promotedFinalKey = intent.finalKey;
+      const url = await promoteR2Object(intent.stagingKey, intent.finalKey, intent.mimeType);
+      const media = await Media.create({
+        filename: intent.filename,
+        url,
+        storageType: "r2",
+        mimeType: intent.mimeType,
+        kind: intent.kind,
+        size: object.size,
+        uploaderId: intent.uploaderId,
+      }, { transaction });
+      const saved = await Media.findByPk(media.id, {
+        include: [{ model: User, as: "uploader", attributes: ["id", "username", "nickname"] }],
+        transaction,
+      });
+      const formatted = formatMedia(saved);
+      await intent.update({
+        status: "confirmed",
+        confirmedAt: new Date(),
+        resultJson: JSON.stringify(formatted),
+      }, { transaction });
+      return formatted;
     });
-    await intent.update({ status: "confirmed", confirmedAt: new Date() });
-    const full = await Media.findByPk(media.id, {
-      include: [{ model: User, as: "uploader", attributes: ["id", "username", "nickname"] }],
-    });
-    res.status(201).json(formatMedia(full));
+    res.status(201).json(full);
   } catch (err: any) {
-    res.status(500).json({ message: err.message || "登记媒体记录失败" });
+    if (promotedFinalKey) await deleteFromR2(promotedFinalKey);
+    res.status(err.status || 500).json({ message: err.message || "登记媒体记录失败" });
   }
 });
 
@@ -301,20 +273,40 @@ router.post("/live-photo", authenticate, requireAdmin, async (req: AuthRequest, 
     return;
   }
 
-  const [image, video] = await Promise.all([
-    Media.findOne({ where: { id: imageMediaId, uploaderId: req.user!.id } }),
-    Media.findOne({ where: { id: videoMediaId, uploaderId: req.user!.id } }),
-  ]);
-  if (!image || !video || !image.mimeType.startsWith("image/") || !video.mimeType.startsWith("video/")) {
-    res.status(400).json({ message: "实况图配对必须使用本人上传的图片和视频" });
-    return;
-  }
+  try {
+    const result = await sequelize.transaction(async (transaction) => {
+      if (imageMediaId === videoMediaId) {
+        throw Object.assign(new Error("图片和视频不能是同一个媒体"), { status: 400 });
+      }
 
-  await Promise.all([
-    image.update({ livePhotoVideo: video.url }),
-    video.update({ livePhotoImage: image.url }),
-  ]);
-  res.json({ image: image.url, video: video.url, isLivePhoto: true });
+      // Always acquire row locks in the same order for concurrent pairing requests.
+      const ids = [imageMediaId, videoMediaId].sort();
+      const locked = new Map<string, Media>();
+      for (const id of ids) {
+        const media = await Media.findOne({
+          where: { id, uploaderId: req.user!.id },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (media) locked.set(id, media);
+      }
+      const image = locked.get(imageMediaId);
+      const video = locked.get(videoMediaId);
+      if (!image || !video || !image.mimeType.startsWith("image/") || !video.mimeType.startsWith("video/")) {
+        throw Object.assign(new Error("实况图配对必须使用本人上传的图片和视频"), { status: 400 });
+      }
+      if (image.livePhotoVideo && image.livePhotoVideo !== video.url || video.livePhotoImage && video.livePhotoImage !== image.url) {
+        throw Object.assign(new Error("其中一个媒体已与其他文件配对"), { status: 409 });
+      }
+
+      await image.update({ livePhotoVideo: video.url }, { transaction });
+      await video.update({ livePhotoImage: image.url }, { transaction });
+      return { image: image.url, video: video.url, isLivePhoto: true };
+    });
+    res.json(result);
+  } catch (err: any) {
+    res.status(err.status || 500).json({ message: err.message || "实况图配对失败" });
+  }
 });
 
 // DELETE /api/media/:id — 删除媒体文件
@@ -336,23 +328,42 @@ router.delete(
       return;
     }
 
+    const pair = media.livePhotoVideo || media.livePhotoImage
+      ? await Media.findOne({
+          where: {
+            url: media.livePhotoVideo || media.livePhotoImage || "",
+            uploaderId: media.uploaderId,
+            kind: media.livePhotoVideo ? "video" : "image",
+            id: { [Op.ne]: media.id },
+          },
+        })
+      : null;
+    const relatedMedia = [media, ...(pair ? [pair] : [])];
+    const relatedIds = relatedMedia.map((item) => item.id);
+    const relatedUrls = relatedMedia.map((item) => item.url);
+
     const playlistReference = await MusicTrack.findOne({
-      where: { [Op.or]: [{ audioMediaId: media.id }, { coverMediaId: media.id }, { lyricMediaId: media.id }] },
+      where: {
+        [Op.or]: [
+          { audioMediaId: { [Op.in]: relatedIds } },
+          { coverMediaId: { [Op.in]: relatedIds } },
+          { lyricMediaId: { [Op.in]: relatedIds } },
+        ],
+      },
       attributes: ["id"],
     });
     if (playlistReference) {
       res.status(409).json({ message: "该媒体正在被网站歌单使用，请先从歌单中移除或替换它" });
       return;
     }
-    const postReference = await Post.findOne({
+    const postsWithMusic = await Post.findAll({
       where: { music: { [Op.ne]: null } },
       attributes: ["id", "music"],
     });
-    if (postReference) {
-      const posts = await Post.findAll({ where: { music: { [Op.ne]: null } }, attributes: ["id", "music"] });
-      const usedByPost = posts.some((post) => {
+    if (postsWithMusic.length > 0) {
+      const usedByPost = postsWithMusic.some((post) => {
         const music = post.music as any;
-        return music?.url === media.url || music?.cover === media.url;
+        return relatedUrls.includes(music?.url) || relatedUrls.includes(music?.cover);
       });
       if (usedByPost) {
         res.status(409).json({ message: "该媒体正在被动态或文章音乐引用，请先移除对应音乐卡片" });
@@ -361,7 +372,7 @@ router.delete(
     }
 
     const catalogReference = await CatalogItem.findOne({
-      where: { imageMediaId: media.id },
+      where: { imageMediaId: { [Op.in]: relatedIds } },
       attributes: ["id"],
     });
     if (catalogReference) {
@@ -369,15 +380,21 @@ router.delete(
       return;
     }
 
-    // 删除 R2 对象失败不阻塞记录删除
-    try {
-      await deleteStoredFile(media.url, "r2");
-    } catch {
-      console.log(`[media] 远端文件删除失败: ${media.url}`);
+    const deletionResults = await Promise.allSettled(
+      relatedMedia.map((item) => deleteStoredFile(item.url, item.storageType))
+    );
+    if (deletionResults.some((result) => result.status === "rejected")) {
+      res.status(502).json({ message: "远端文件删除失败，媒体记录已保留，请稍后重试" });
+      return;
     }
 
-    await media.destroy();
-    res.status(204).send();
+    try {
+      await Media.destroy({ where: { id: { [Op.in]: relatedIds } } });
+      res.status(204).send();
+    } catch (dbError) {
+      console.error("[media delete] 远端文件已删除但数据库记录清理失败:", dbError);
+      res.status(500).json({ message: "媒体数据清理失败，请重试以完成同步" });
+    }
   }
 );
 

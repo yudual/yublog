@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState, useMemo } from "react";
 import ArticleCommentSection from "@/components/article/ArticleCommentSection";

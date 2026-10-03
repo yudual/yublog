@@ -22,6 +22,7 @@ import { sanitizeCommentContent } from "../utils/sanitize";
 import { triggerRevalidate } from "../utils/revalidate";
 import { avatarHash } from "../utils/avatar-hash";
 import { resolveReplyToEmail } from "../utils/comment-utils";
+import { isValidHttpUrl, normalizeHttpUrl } from "../utils/web-url";
 import type { CatalogCollection } from "../models/CatalogCategory";
 
 const router = Router();
@@ -118,7 +119,7 @@ router.post(
     body("content").trim().isLength({ min: 1, max: 10_000 }),
     body("authorName").trim().isLength({ min: 1, max: 100 }),
     body("email").trim().isEmail().normalizeEmail(),
-    body("website").optional().trim().isLength({ max: 255 }),
+    body("website").optional().trim().isLength({ max: 255 }).custom(isValidHttpUrl),
     body("replyTo").optional().trim().isLength({ max: 100 }),
     body("replyToEmail").optional().trim().isEmail().normalizeEmail(),
     body("replyToId").optional({ checkFalsy: true }).isUUID(),
@@ -147,7 +148,7 @@ router.post(
       pageId: page.id,
       authorName: req.body.authorName,
       email,
-      website: req.body.website || null,
+      website: normalizeHttpUrl(req.body.website) || undefined,
       replyTo: req.body.replyTo || null,
       replyToEmail: replyToEmail ?? undefined,
       replyToId: req.body.replyToId || null,

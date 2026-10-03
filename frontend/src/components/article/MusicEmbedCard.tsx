@@ -6,6 +6,7 @@ import type { PostMusic } from "@/lib/types";
 import { useMusicPlayer, getStaticMusicUrl } from "@/lib/music-player-store";
 import { getGlobalAudio } from "@/lib/global-audio";
 import { toHttps, toAbsoluteUrl } from "@/lib/upload";
+import { toSafeImageUrl } from "@/lib/web-url";
 import LazyImage from "@/components/LazyImage";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
@@ -120,11 +121,12 @@ export default function MusicEmbedCard({ music, postId }: MusicEmbedCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const coverSrc = music.cover
+  const safeCover = toSafeImageUrl(music.cover);
+  const coverSrc = safeCover
     ? toHttps(
-        typeof music.cover === "string" && music.cover.startsWith("http")
-          ? music.cover
-          : `${API_URL.replace("/api", "")}${toAbsoluteUrl(music.cover)}`
+        safeCover.startsWith("http")
+          ? safeCover
+          : `${API_URL.replace("/api", "")}${toAbsoluteUrl(safeCover)}`
       )
     : "";
 

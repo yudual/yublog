@@ -9,7 +9,7 @@ import type { Post } from "@/lib/types";
 import { formatExactDateTime, getPostSourceLabel } from "@/lib/time-format";
 import { resolveAvatarFromHash } from "@/lib/avatar";
 import { normalizeImages } from "@/lib/post-image";
-import { toHttps } from "@/lib/upload";
+import { toAbsoluteUrl, toHttps } from "@/lib/upload";
 import { getCurrentUser } from "@/lib/auth";
 import { renderContent } from "@/lib/sanitize";
 import { useMusicPlayer, getStaticMusicUrl } from "@/lib/music-player-store";
@@ -23,8 +23,8 @@ import ActionMenu from "./ActionMenu";
 import CommentSection from "./CommentSection";
 import LazyImage from "./LazyImage";
 import DoubanEmbedCard from "./article/DoubanEmbedCard";
-import { toast } from "@/lib/toast";
 import { sharePost } from "@/lib/share";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
 
@@ -82,6 +82,8 @@ function MomentCard({
   variant = "timeline",
 }: MomentCardProps) {
   const isCardVariant = variant === "card";
+  const safeLinkUrl = toSafeHttpUrl(post.linkCard?.url);
+  const safeLinkImage = toSafeImageUrl(post.linkCard?.image);
   const router = useRouter();
   const isDesktop = useIsDesktop();
   const currentUser = useCurrentUser();
@@ -503,9 +505,9 @@ function MomentCard({
         )}
 
         {/* Link card — 微信朋友圈链接卡片样式 */}
-        {post.linkCard && (
+        {post.linkCard && safeLinkUrl && (
           <a
-            href={post.linkCard.url}
+            href={safeLinkUrl}
             target="_blank"
             rel="noopener noreferrer"
             className={`mt-2 flex w-full items-stretch overflow-hidden rounded-[8px] bg-[#f2f2f2] transition-colors hover:bg-[#eaeaea] active:bg-[#e0e0e0] dark:bg-[#2a2a30] dark:hover:bg-[#33333a] dark:active:bg-[#3a3a42] ${
@@ -514,9 +516,9 @@ function MomentCard({
           >
             {/* 左侧方形封面 */}
             <div className="flex h-[72px] w-[72px] shrink-0 md:h-[80px] md:w-[80px] items-center justify-center overflow-hidden bg-black/[0.02] dark:bg-white/[0.02]">
-              {post.linkCard.image && (
+              {safeLinkImage && (
                 <LazyImage
-                  src={post.linkCard.image}
+                  src={safeLinkImage}
                   alt=""
                   className="h-full w-full object-contain p-1.5"
                   onError={(e) => {
@@ -528,7 +530,7 @@ function MomentCard({
             {/* 右侧内容区 — 半透明背景，与音乐卡片一致 */}
             <div className="flex min-w-0 flex-1 flex-col justify-center bg-white/35 px-3 dark:bg-white/[0.04]">
               <p className="line-clamp-1 text-[14px] font-medium leading-[20px] text-black/[0.87] dark:text-white/90 md:text-[15px] md:leading-[21px]">
-                {post.linkCard.title || post.linkCard.url}
+                {post.linkCard.title || safeLinkUrl}
               </p>
               {post.linkCard.description && (
                 <p className="line-clamp-2 mt-0.5 text-[12px] leading-[15px] text-black/50 dark:text-white/50 md:text-[13px] md:leading-[16px]">
@@ -550,9 +552,13 @@ function MomentCard({
           >
             {/* 左侧方形封面 — 紧贴边框，无间距，高度增加 */}
             <div className="relative h-[72px] w-[72px] shrink-0 md:h-[80px] md:w-[80px] overflow-hidden bg-black/5 dark:bg-white/5">
-              {post.music.cover ? (
+              {toSafeImageUrl(post.music.cover) ? (
                 <LazyImage
-                  src={toHttps(typeof post.music.cover === "string" && post.music.cover.startsWith("http") ? post.music.cover : `${API_URL.replace("/api", "")}${post.music.cover}`)}
+                  src={toHttps(
+                    toSafeImageUrl(post.music.cover)?.startsWith("http")
+                      ? toSafeImageUrl(post.music.cover) || ""
+                      : `${API_URL.replace("/api", "")}${toAbsoluteUrl(toSafeImageUrl(post.music.cover) || "")}`
+                  )}
                   alt=""
                   className="h-full w-full object-cover"
                 />

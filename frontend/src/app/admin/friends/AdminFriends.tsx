@@ -25,6 +25,7 @@ import {
 import { cravatarUrl } from "@/lib/avatar";
 import { apiFetch, getToken } from "@/lib/api-fetch";
 import { uploadImage, toAbsoluteUrl } from "@/lib/upload";
+import { toSafeHttpUrl } from "@/lib/web-url";
 import { useExitAnimation } from "@/lib/use-exit-animation";
 import ConfirmDialog from "@/components/admin/ConfirmDialog";
 
@@ -466,15 +467,17 @@ export default function AdminFriends() {
                 {link.desc && (
                   <p className="truncate text-xs text-adm-text-tertiary">{link.desc}</p>
                 )}
-                <a
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-0.5 inline-flex items-center gap-1 text-xs text-wechat-link hover:underline"
-                >
-                  {link.url}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                {toSafeHttpUrl(link.url) && (
+                  <a
+                    href={toSafeHttpUrl(link.url) || undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-0.5 inline-flex items-center gap-1 text-xs text-wechat-link hover:underline"
+                  >
+                    {link.url}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
               </div>
               <div className="flex shrink-0 gap-1.5">
                 <button

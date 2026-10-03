@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   BookMarked,
   Layers,
@@ -12,7 +11,6 @@ import {
   Heart,
   Calendar,
   Eye,
-  MessageSquare,
   Clock,
   Sparkles,
 } from "lucide-react";
@@ -22,7 +20,6 @@ import { resolveAvatarFromHash } from "@/lib/avatar";
 import { resolveCoverImage } from "@/lib/post-image";
 import { getCurrentUser } from "@/lib/auth";
 import { sharePost } from "@/lib/share";
-import { toast } from "@/lib/toast";
 import ArticleCommentSection from "@/components/article/ArticleCommentSection";
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
 
@@ -33,7 +30,6 @@ interface CollectionReaderProps {
 }
 
 export default function CollectionReader({ post }: CollectionReaderProps) {
-  const router = useRouter();
   const [likes, setLikes] = useState<Array<{ name: string; email?: string }>>(post.likes || []);
   const [liked, setLiked] = useState(false);
   const [liking, setLiking] = useState(false);
@@ -51,17 +47,13 @@ export default function CollectionReader({ post }: CollectionReaderProps) {
   const authorAvatar = resolveAvatarFromHash(post.author?.avatar, post.author?.avatarHash, 96);
   const formattedDate = formatArticleTime(post.createdAt);
 
-  useEffect(() => {
+  const [prevPostId, setPrevPostId] = useState(post.id);
+  if (prevPostId !== post.id) {
+    setPrevPostId(post.id);
     setLiked(!!post.meLiked);
-  }, [post.id, post.meLiked]);
-
-  useEffect(() => {
     setLikes(post.likes || []);
-  }, [post.likes]);
-
-  useEffect(() => {
     setComments(post.comments || []);
-  }, [post.comments]);
+  }
 
   // 点赞/取消点赞
   const handleLike = async () => {
@@ -242,7 +234,6 @@ export default function CollectionReader({ post }: CollectionReaderProps) {
             {articles.map((article, index) => {
               const articleUrl = `/articles/${article.shortId || article.id}`;
               const order = String(index + 1).padStart(2, "0");
-              const articleCover = resolveCoverImage(article.cover, "");
               return (
                 <Link
                   key={article.id}

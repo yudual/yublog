@@ -5,6 +5,7 @@ import { Film, Book, Music, Search, Star, X } from "lucide-react";
 import type { PostDouban } from "@/lib/types";
 import { getApiUrl } from "@/lib/api-fetch";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeImageUrl } from "@/lib/web-url";
 import { useExitAnimation } from "@/lib/use-exit-animation";
 
 interface DoubanPickerProps {
@@ -186,13 +187,16 @@ export default function DoubanPicker({ open, onClose, onSelect }: DoubanPickerPr
                   onClick={() => handleSelect(item)}
                   className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={toAbsoluteUrl(item.cover)}
-                    alt=""
-                    loading="lazy"
-                    className="h-14 w-10 shrink-0 rounded object-cover bg-black/5 dark:bg-white/5"
-                  />
+                  {toSafeImageUrl(item.cover) ? (
+                    <img
+                      src={toAbsoluteUrl(toSafeImageUrl(item.cover) || "")}
+                      alt=""
+                      loading="lazy"
+                      className="h-14 w-10 shrink-0 rounded object-cover bg-black/5 dark:bg-white/5"
+                    />
+                  ) : (
+                    <div className="h-14 w-10 shrink-0 rounded bg-black/5 dark:bg-white/5" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-sm font-medium text-black dark:text-white">
                       {item.title.split("\n")[0].split("/")[0].trim()}

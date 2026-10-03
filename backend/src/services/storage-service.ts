@@ -42,16 +42,22 @@ export async function storeFileAndRecordMedia(
   prefix = "media"
 ): Promise<{ url: string; storageType: StorageType; mediaId: string }> {
   const { url, storageType } = await storeBuffer(buffer, originalName, mimeType, prefix);
-  const media = await Media.create({
-    filename: originalName,
-    url,
-    storageType,
-    mimeType,
-    kind: getMediaCategory(mimeType) as MediaKind,
-    size: buffer.length,
-    uploaderId,
-  });
-  return { url, storageType, mediaId: media.id };
+  try {
+    const media = await Media.create({
+      filename: originalName,
+      url,
+      storageType,
+      mimeType,
+      kind: getMediaCategory(mimeType) as MediaKind,
+      size: buffer.length,
+      uploaderId,
+    });
+    return { url, storageType, mediaId: media.id };
+  } catch (error) {
+    const key = extractR2Key(url);
+    if (key) await deleteFromR2(key);
+    throw error;
+  }
 }
 
 export async function createPresignedUpload(
@@ -65,7 +71,9 @@ export async function createPresignedUpload(
 export async function deleteStoredFile(url: string, storageType: StorageType): Promise<void> {
   if (storageType !== "r2") return;
   const key = extractR2Key(url);
-  if (key) await deleteFromR2(key);
+  if (key && !(await deleteFromR2(key))) {
+    throw new Error("远端文件删除失败");
+  }
 }
 
 export { isR2Ready };

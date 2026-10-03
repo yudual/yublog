@@ -22,6 +22,22 @@ const ALLOWED_HOSTS = [
   "img8.douban.com",
   "img9.douban.com",
 ];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_REDIRECTS = 3;
+
+function isAllowedImageUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (
+      (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+      !parsed.username &&
+      !parsed.password &&
+      ALLOWED_HOSTS.some((host) => parsed.hostname === host)
+    );
+  } catch {
+    return false;
+  }
+}
 
 async function getDoubanId(): Promise<string> {
   const setting = await SiteSetting.findByPk(1);
@@ -74,36 +90,64 @@ router.get("/proxy", async (req: Request, res: Response) => {
   }
 
   // 安全校验：只允许豆瓣图片域名
-  try {
-    const parsed = new URL(targetUrl);
-    if (!ALLOWED_HOSTS.some((h) => parsed.hostname === h)) {
-      res.status(403).json({ message: "不允许的图片域名" });
+  if (!isAllowedImageUrl(targetUrl)) {
+    if (!/^https?:\/\//i.test(targetUrl)) {
+      res.status(400).json({ message: "无效的 URL" });
       return;
     }
-  } catch {
-    res.status(400).json({ message: "无效的 URL" });
+    res.status(403).json({ message: "不允许的图片域名" });
     return;
   }
 
   try {
-    const resp = await axios.get(targetUrl, {
-      responseType: "arraybuffer",
-      timeout: 10000,
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        Referer: "https://www.douban.com/",
-        Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
-      },
-    });
+    let currentUrl = targetUrl;
+    let resp;
+    for (let redirectCount = 0; ; redirectCount += 1) {
+      resp = await axios.get(currentUrl, {
+        responseType: "arraybuffer",
+        maxContentLength: MAX_IMAGE_BYTES,
+        maxBodyLength: MAX_IMAGE_BYTES,
+        timeout: 10000,
+        maxRedirects: 0,
+        validateStatus: (status) => status >= 200 && status < 400,
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          Referer: "https://www.douban.com/",
+          Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
+        },
+      });
 
-    if (resp.status !== 200) {
+      if (resp.status < 300 || resp.status >= 400) break;
+      if (redirectCount >= MAX_REDIRECTS) {
+        res.status(502).json({ message: "豆瓣图片重定向次数过多" });
+        return;
+      }
+      const location = resp.headers.location;
+      if (typeof location !== "string" || !location) {
+        res.status(502).json({ message: "豆瓣图片重定向地址无效" });
+        return;
+      }
+      const nextUrl = new URL(location, currentUrl).href;
+      if (!isAllowedImageUrl(nextUrl)) {
+        res.status(403).json({ message: "豆瓣图片重定向到不允许的域名" });
+        return;
+      }
+      currentUrl = nextUrl;
+    }
+
+    if (!resp || resp.status !== 200) {
       res.status(502).json({ message: "豆瓣图片获取失败" });
       return;
     }
 
+    const contentType = String(resp.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase();
+    if (!contentType.startsWith("image/")) {
+      res.status(502).json({ message: "豆瓣图片响应类型无效" });
+      return;
+    }
+
     const buffer = Buffer.from(resp.data);
-    const contentType = String(resp.headers["content-type"] || "image/jpeg");
     res.setHeader("Content-Type", contentType);
     // public + s-maxage：允许浏览器和 Vercel 边缘 CDN 同时缓存 24 小时
     res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");

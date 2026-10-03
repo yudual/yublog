@@ -47,19 +47,44 @@ const DANGEROUS_TAGS = new Set([
   "script", "style", "iframe", "object", "embed", "link", "meta", "base", "form", "textarea", "select"
 ]);
 
-function isSafeUrl(value: string): boolean {
-  const v = value.trim().toLowerCase();
-  if (v.startsWith("javascript:") || v.startsWith("data:text/html") || v.startsWith("vbscript:")) {
-    return false;
-  }
-  return true;
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&#(x[0-9a-f]+|\d+);?/gi, (_, code: string) => {
+      const parsed = code.toLowerCase().startsWith("x")
+        ? parseInt(code.slice(1), 16)
+        : parseInt(code, 10);
+      return Number.isInteger(parsed) && parsed >= 0 && parsed <= 0x10ffff
+        ? String.fromCodePoint(parsed)
+        : _;
+    })
+    .replace(/&(colon|semi|newline|tab|amp|lt|gt|quot|apos);/gi, (match, name: string) => {
+      const entities: Record<string, string> = {
+        colon: ":", semi: ";", newline: "\n", tab: "\t", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
+      };
+      return entities[name.toLowerCase()] || match;
+    });
+}
+
+function isSafeUrl(value: string, tag: string, attrName: string): boolean {
+  const decoded = decodeHtmlEntities(value);
+  // Browsers normalize control characters in URL attributes before navigation.
+  // Reject them here so a split scheme such as "java\nscript:" cannot pass as relative text.
+  if (/[\u0000-\u001f\u007f]/.test(decoded)) return false;
+  const v = decoded.trim().toLowerCase();
+  if (!v || v.startsWith("//")) return false;
+  if (v.startsWith("/") || v.startsWith("#") || v.startsWith("./") || v.startsWith("../")) return true;
+  const scheme = v.match(/^([a-z][a-z\d+.-]*):/i)?.[1];
+  if (!scheme) return true;
+  if (scheme === "http" || scheme === "https") return true;
+  return tag === "a" && attrName === "href" && (scheme === "mailto" || scheme === "tel");
 }
 
 function sanitizeStyle(value: string): string {
-  // 移除可能用于 XSS 或破坏布局的样式：expression()、url(javascript:...)、position:fixed 等
-  if (value.includes("expression(")) return "";
-  const cleaned = value
-    .replace(/url\(\s*['"]?\s*javascript:[^)]*\)/gi, "")
+  // 移除可能用于 XSS 或破坏布局的样式：expression()、任意 url()、position:fixed 等
+  const decoded = decodeHtmlEntities(value);
+  if (/expression\s*\(|@import/i.test(decoded)) return "";
+  const cleaned = decoded
+    .replace(/url\s*\([^)]*\)/gi, "")
     .replace(/position\s*:\s*fixed/gi, "position:static")
     .replace(/position\s*:\s*absolute/gi, "position:static");
   return cleaned;
@@ -134,7 +159,7 @@ export function sanitizeHtml(html: string): string {
 
         // 标签特定白名单属性
         if (allowedAttrs && allowedAttrs.has(attrName)) {
-          if ((attrName === "href" || attrName === "src") && !isSafeUrl(attrValue)) {
+          if ((attrName === "href" || attrName === "src") && !isSafeUrl(attrValue, tag, attrName)) {
             continue;
           }
           if (tag === "a" && attrName === "target" && attrValue === "_blank") {

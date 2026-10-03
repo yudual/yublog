@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
-import { getGlobalAudio } from "@/lib/global-audio";
-import { useMusicPlayer } from "@/lib/music-player-store";
-import LyricPanel from "@/components/LyricPanel";
+import { ArrowLeft } from "lucide-react";
 
 interface ProfileTopBarProps {
   coverHeight?: number;
@@ -23,27 +20,6 @@ export default function ProfileTopBar({ coverHeight = 300, initialBgAlpha = 0, s
   const router = useRouter();
   const [bgAlpha, setBgAlpha] = useState(scrollFade ? 0 : initialBgAlpha);
   const coverHeightRef = useRef(coverHeight);
-
-  // 音乐状态从全局 store 读取（由 GlobalMusicManager 管理）
-  const isPlaying = useMusicPlayer((s) => s.isPlaying);
-  const switching = useMusicPlayer((s) => s.switching);
-  const musicUrl = useMusicPlayer((s) => s.musicUrl);
-  const musicName = useMusicPlayer((s) => s.musicName);
-  const lyric = useMusicPlayer((s) => s.lyric);
-  const currentLyric = useMusicPlayer((s) => s.currentLyric);
-  const currentLyricIndex = useMusicPlayer((s) => s.currentLyricIndex);
-  const showLyricPanel = useMusicPlayer((s) => s.showLyricPanel);
-  const muted = useMusicPlayer((s) => s.muted);
-  const audioError = useMusicPlayer((s) => s.audioError);
-  const audioErrorMessage = useMusicPlayer((s) => s.audioErrorMessage);
-  const musicLoaded = useMusicPlayer((s) => s.musicLoaded);
-  const activePostMusic = useMusicPlayer((s) => s.activePostMusic);
-  const playlist = useMusicPlayer((s) => s.playlist);
-  const currentIndex = useMusicPlayer((s) => s.currentIndex);
-  const clearActivePost = useMusicPlayer((s) => s.clear);
-  const setShowLyricPanel = useMusicPlayer((s) => s.setShowLyricPanel);
-  const setMuted = useMusicPlayer((s) => s.setMuted);
-  const prepareTrack = useMusicPlayer((s) => s.prepareTrack);
 
   useEffect(() => {
     const measure = () => {
@@ -102,49 +78,6 @@ export default function ProfileTopBar({ coverHeight = 300, initialBgAlpha = 0, s
       window.removeEventListener("resize", onScroll);
     };
   }, [surfaceColor, scrollFade]);
-
-  const togglePlay = async () => {
-    const audio = getGlobalAudio();
-    if (!audio || (!musicUrl && !activePostMusic && playlist.length === 0)) return;
-    let targetUrl = activePostMusic?.url || musicUrl;
-    if (!targetUrl && !activePostMusic) {
-      const prepared = await prepareTrack(currentIndex);
-      if (!prepared) return;
-      targetUrl = prepared.url;
-    }
-    // 强守卫：src 缺失或不匹配目标 URL 时重新加载，避免播放过期歌曲
-    if (!audio.getAttribute("src") || !audio.src.includes(targetUrl)) {
-      audio.src = targetUrl;
-    }
-    if (audio.paused) audio.play().catch(() => useMusicPlayer.getState().setAudioError(true, "播放地址已失效或被音源拒绝，请重试或切换曲目。"));
-    else audio.pause();
-  };
-
-  const toggleMute = () => {
-    const audio = getGlobalAudio();
-    if (audio) { audio.muted = !muted; setMuted(!muted); }
-  };
-
-  const playTrack = async (index: number) => {
-    const audio = getGlobalAudio();
-    const st = useMusicPlayer.getState();
-    if (!st.playlist[index] || !audio) return;
-    const prepared = await prepareTrack(index);
-    if (!prepared) return;
-    if (st.activePostMusic) clearActivePost();
-    audio.src = prepared.url;
-    audio.play().catch(() => useMusicPlayer.getState().setAudioError(true, "播放地址已失效或被音源拒绝，请重试或切换曲目。"));
-  };
-
-  const playNext = () => {
-    if (playlist.length === 0) return;
-    playTrack((currentIndex + 1) % playlist.length);
-  };
-
-  const playPrev = () => {
-    if (playlist.length === 0) return;
-    playTrack((currentIndex - 1 + playlist.length) % playlist.length);
-  };
 
   const handleBack = () => {
     const navigate = () => {

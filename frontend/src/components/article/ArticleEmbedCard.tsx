@@ -5,6 +5,7 @@ import { FileText } from "lucide-react";
 import { toAbsoluteUrl } from "@/lib/upload";
 import LazyImage from "@/components/LazyImage";
 import type { ArticleEmbedData } from "../editor/embed-utils";
+import { toSafeImageUrl } from "@/lib/web-url";
 
 interface ArticleEmbedCardProps {
   article: ArticleEmbedData;
@@ -20,9 +21,9 @@ export default function ArticleEmbedCard({ article, className }: ArticleEmbedCar
     >
       {/* 左侧封面 */}
       <div className="relative h-[72px] w-[54px] shrink-0 overflow-hidden bg-black/5 dark:bg-white/5 md:h-[80px] md:w-[60px]">
-        {article.cover ? (
+        {toSafeImageUrl(article.cover) ? (
           <LazyImage
-            src={toAbsoluteUrl(article.cover)}
+            src={toAbsoluteUrl(toSafeImageUrl(article.cover) || "")}
             alt=""
             className="h-full w-full object-cover"
             onError={(e) => {

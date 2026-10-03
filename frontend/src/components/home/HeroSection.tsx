@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
@@ -9,6 +8,7 @@ import type { User } from "@/lib/types";
 import { resolveAvatar } from "@/lib/avatar";
 import { toAbsoluteUrl, toHttps } from "@/lib/upload";
 import { SocialIcon, getSocialPlatform } from "@/components/SocialIcons";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 export interface HeroSiteSettings {
   siteName?: string;
@@ -37,13 +37,17 @@ export default function HeroSection({ owner, siteSettings }: HeroSectionProps) {
         const parsed = typeof rawBg === "string" ? JSON.parse(rawBg) : rawBg;
         if (Array.isArray(parsed)) {
           for (const u of parsed) {
-            if (typeof u === "string" && u.trim()) list.push(u.trim());
+            if (typeof u === "string") {
+              const safe = toSafeImageUrl(u);
+              if (safe) list.push(safe);
+            }
           }
         }
       } catch {}
     }
     if (list.length === 0 && owner.cover?.trim()) {
-      list.push(owner.cover.trim());
+      const safeCover = toSafeImageUrl(owner.cover);
+      if (safeCover) list.push(safeCover);
     }
     return list;
   }, [siteSettings?.backgroundImages, owner.cover]);
@@ -194,8 +198,11 @@ export default function HeroSection({ owner, siteSettings }: HeroSectionProps) {
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
             {heroSocialLinks.map((link: { type: string; url: string }, idx: number) => {
               const platform = getSocialPlatform(link.type);
-              const isEmail = link.type === "email";
-              const href = isEmail ? `mailto:${link.url}` : link.url;
+              const isEmail = link.type.toLowerCase() === "email";
+              const emailValue = link.url.replace(/^mailto:/i, "");
+              const safeUrl = toSafeHttpUrl(link.url);
+              const href = isEmail ? `mailto:${emailValue}` : safeUrl;
+              if (!href) return null;
               return (
                 <a
                   key={idx}

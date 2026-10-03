@@ -10,7 +10,6 @@ import { htmlToMarkdown } from "@/lib/markdown";
 
 export default function AdminAbout() {
   const [content, setContent] = useState(() => htmlToMarkdown(defaultAboutContent));
-  const [initialLoaded, setInitialLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<{
     type: "success" | "warning";
@@ -39,8 +38,7 @@ export default function AdminAbout() {
       })
       .catch(() => {
         // 静默降级到本地缓存或默认自述，不弹窗打扰用户
-      })
-      .finally(() => setInitialLoaded(true));
+      });
   }, []);
 
   // 自动隐藏保存状态提示

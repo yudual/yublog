@@ -55,6 +55,7 @@ function buildTile(post: Post): TileInfo {
 // 渐显缩略图：与首页 ImageGrid 中的 FadeImage 相同的渐显效果
 function FadeThumb({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false);
+  if (!src) return null;
   return (
     <Image
       src={src}
@@ -158,7 +159,7 @@ interface PinnedTileProps {
 }
 
 function PinnedTile({ tile, onOpenImage, onOpenVideo }: PinnedTileProps) {
-  const { kind, cover, fallbackText, post } = tile;
+  const { kind, cover, fallbackText } = tile;
 
   const handleClick = (e: React.MouseEvent<HTMLElement>) => {
     if (kind === "video") {

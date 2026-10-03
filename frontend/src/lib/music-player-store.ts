@@ -1,12 +1,18 @@
 import { create } from "zustand";
+import { toAbsoluteUrl } from "./upload";
+import { toSafeHttpUrl } from "./web-url";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api";
 
 /** Returns a durable R2/public URL. No external source is resolved in the browser. */
 export function getStaticMusicUrl(music: { url?: string; mp3url?: string }): string {
-  const url = music.url || music.mp3url || "";
-  if (!url) return "";
-  return url.startsWith("http") ? url : `${API_URL.replace(/\/api$/, "")}${url}`;
+  const raw = typeof (music.url || music.mp3url) === "string" ? (music.url || music.mp3url || "").trim() : "";
+  if (!raw) return "";
+  const external = toSafeHttpUrl(raw);
+  if (external) return external;
+  const local = toAbsoluteUrl(raw);
+  if (!local.startsWith("/")) return "";
+  return `${API_URL.replace(/\/api$/, "")}${local}`;
 }
 
 /** Dynamic/article music is always a static R2-backed audio item. */

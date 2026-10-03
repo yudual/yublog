@@ -12,6 +12,20 @@ import { assertPublicHttpUrl } from "../utils/ssrf-guard";
 const router = Router();
 
 const MAX_REDIRECTS = 5;
+const MAX_HTML_BYTES = 2 * 1024 * 1024;
+
+function resolveSafeImageUrl(value: string, baseUrl: string): string {
+  if (!value) return "";
+  try {
+    const resolved = new URL(value, baseUrl);
+    if ((resolved.protocol !== "http:" && resolved.protocol !== "https:") || resolved.username || resolved.password) {
+      return "";
+    }
+    return resolved.href;
+  } catch {
+    return "";
+  }
+}
 
 /**
  * 带 SSRF 防护的页面抓取：每一跳（含重定向目标）都重新做
@@ -33,6 +47,8 @@ async function fetchPageHtml(rawUrl: string): Promise<string> {
           "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
         },
         responseType: "text",
+        maxContentLength: MAX_HTML_BYTES,
+        maxBodyLength: MAX_HTML_BYTES,
         transformResponse: [(data) => data],
       });
       return typeof resp.data === "string" ? resp.data : "";
@@ -106,25 +122,12 @@ function extractLinkCard(html: string, url: string): LinkCardData {
     } catch {}
   }
 
-  let imageUrl = ogImage;
-  if (imageUrl && !imageUrl.startsWith("http")) {
-    try {
-      imageUrl = new URL(imageUrl, url).href;
-    } catch {
-      imageUrl = "";
-    }
-  }
+  let imageUrl = resolveSafeImageUrl(ogImage, url);
 
   // 无 OG image 时回退到 favicon
   if (!imageUrl) {
     if (linkIcon) {
-      if (linkIcon.startsWith("http")) {
-        imageUrl = linkIcon;
-      } else {
-        try {
-          imageUrl = new URL(linkIcon, url).href;
-        } catch {}
-      }
+      imageUrl = resolveSafeImageUrl(linkIcon, url);
     }
     // 最终回退：Google favicon 服务（128px 高清）
     if (!imageUrl && hostname) {

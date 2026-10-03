@@ -15,6 +15,7 @@ import type { Post } from "@/lib/types";
 import { getApiUrl } from "@/lib/api-fetch";
 import { stripMarkdownAndHtml } from "@/lib/frontmatter";
 import { extractCleanPostId } from "@/lib/share";
+import { toSafeImageUrl } from "@/lib/web-url";
 
 const API_URL = getApiUrl();
 
@@ -52,7 +53,7 @@ export async function generateMetadata({
       : `${post.title || "文章详情"} - 个人博客`;
     const description = cleanSummary.slice(0, 150) || (post.type === "collection" ? "查看系列专栏合辑详情" : "文章详情");
     // 未配置封面时分享卡退化为 summary 型，不带空图链接
-    const imageUrl = typeof post.cover === "string" && post.cover.trim() ? post.cover.trim() : undefined;
+    const imageUrl = toSafeImageUrl(post.cover) || undefined;
     return {
       title,
       description,

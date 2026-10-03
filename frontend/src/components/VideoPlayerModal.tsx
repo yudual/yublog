@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
 import type { PostVideo } from "@/lib/types";
 import { toAbsoluteUrl } from "@/lib/upload";
+import { toSafeHttpUrl, toSafeImageUrl, toSafeMediaUrl } from "@/lib/web-url";
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
 import CustomVideoPlayer from "./CustomVideoPlayer";
 
@@ -62,7 +63,7 @@ export default function VideoPlayerModal({ video, onClose, postId, onRefreshed }
   // 自动重试标记：链接过期时自动重新解析一次（跳过缓存），失败再显示错误
   const autoRetriedRef = useRef(false);
   // 记录初始是否已有有效 URL，用于决定是否跳过 /refresh
-  const hasInitialValidUrl = Boolean(video.url && video.url.startsWith("http"));
+  const hasInitialValidUrl = Boolean(toSafeMediaUrl(video.url));
 
   // 关闭：先播放退出动画，动画结束后再真正卸载
   const handleClose = useCallback(() => {
@@ -116,6 +117,11 @@ export default function VideoPlayerModal({ video, onClose, postId, onRefreshed }
       if (fresh.playback === "source-page") {
         setPhase("error");
         setErrorMsg("该平台暂未提供可直接播放的视频，请在原平台观看");
+        return;
+      }
+      if (!toSafeMediaUrl(fresh.url)) {
+        setPhase("error");
+        setErrorMsg("解析结果缺少有效的视频地址，请在原平台观看");
         return;
       }
       // 回传最新数据给父组件，让动态卡片信息（头像/昵称/标题/点赞）跟着更新
@@ -191,8 +197,10 @@ export default function VideoPlayerModal({ video, onClose, postId, onRefreshed }
   if (typeof document === "undefined") return null;
 
   const currentVideo = freshVideo || video;
-  const cover = currentVideo.cover ? toAbsoluteUrl(currentVideo.cover) : undefined;
-  const rawUrl = toAbsoluteUrl(currentVideo.url || "");
+  const safeCover = toSafeImageUrl(currentVideo.cover);
+  const cover = safeCover ? toAbsoluteUrl(safeCover) : undefined;
+  const safeVideoUrl = toSafeMediaUrl(currentVideo.url);
+  const rawUrl = safeVideoUrl ? toAbsoluteUrl(safeVideoUrl) : "";
   const playback = currentVideo.playback || (isDirectPublicVideo(rawUrl) ? "direct" : "proxy");
   const videoSrc = playback === "direct" ? rawUrl : rawUrl.startsWith("http")
     ? `${API_URL}/video/proxy?url=${encodeURIComponent(rawUrl)}`
@@ -200,9 +208,7 @@ export default function VideoPlayerModal({ video, onClose, postId, onRefreshed }
   const likeText = formatLike(currentVideo.like);
 
   // 信息条跳转 URL（http 前缀补全）
-  const infoHref = currentVideo.sourceUrl
-    ? (currentVideo.sourceUrl.startsWith("http") ? currentVideo.sourceUrl : `https://${currentVideo.sourceUrl}`)
-    : null;
+  const infoHref = toSafeHttpUrl(currentVideo.sourceUrl);
 
   const handleBgClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) handleClose();
@@ -225,9 +231,9 @@ export default function VideoPlayerModal({ video, onClose, postId, onRefreshed }
   // 信息条内容
   const infoContent = (
     <>
-      {currentVideo.avatar && (
+      {toSafeImageUrl(currentVideo.avatar) && (
         <img
-          src={toAbsoluteUrl(currentVideo.avatar)}
+          src={toAbsoluteUrl(toSafeImageUrl(currentVideo.avatar) || "")}
           alt=""
           className="h-4 w-4 shrink-0 rounded-full object-cover"
         />

@@ -14,6 +14,7 @@ import { getApiUrl } from "@/lib/api-fetch";
 import ArticleEmbedContent from "@/components/article/ArticleEmbedContent";
 import { stripMarkdownAndHtml } from "@/lib/frontmatter";
 import { extractCleanPostId } from "@/lib/share";
+import { toSafeHttpUrl } from "@/lib/web-url";
 
 const API_URL = getApiUrl();
 export const revalidate = 10;
@@ -105,9 +106,10 @@ export default async function ProjectDetailPage({
 
   const plainText = toPlainText(post.content || "");
   const title = getProjectTitle(post, plainText);
-  const description = getProjectDescription(post, plainText);
   const cleanContent = (post.content || "").replace(/<!--[\s\S]*?-->/g, "").trim();
   const hasH1 = /^\s*#\s+/m.test(cleanContent);
+  const linkCardUrl = toSafeHttpUrl(post.linkCard?.url);
+  const repostUrl = toSafeHttpUrl(post.repostUrl);
 
   return (
     <div id="scroll-root" className="relative min-h-screen flex flex-col overflow-x-hidden bg-wechat-white md:bg-wechat-bg transition-colors">
@@ -153,22 +155,22 @@ export default async function ProjectDetailPage({
               )}
 
               {/* 外部体验与源码链接（若设置了独立外链） */}
-              {(post.linkCard?.url || post.repostUrl) && (
+              {(linkCardUrl || repostUrl) && (
                 <div className="mt-12 flex flex-wrap items-center gap-3 pt-6 border-t border-neutral-200/60 dark:border-neutral-800/80">
-                  {post.linkCard?.url && (
+                  {linkCardUrl && (
                     <a
-                      href={post.linkCard.url}
+                      href={linkCardUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-neutral-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-emerald-200 cursor-pointer"
                     >
                       <ExternalLink className="h-4 w-4" />
-                      <span>{post.linkCard.siteName || "访问体验 / 在线演示"}</span>
+                      <span>{post.linkCard?.siteName || "访问体验 / 在线演示"}</span>
                     </a>
                   )}
-                  {post.repostUrl && (
+                  {repostUrl && (
                     <a
-                      href={post.repostUrl}
+                      href={repostUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-neutral-200/80 bg-white px-4 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800/90 dark:text-neutral-200 dark:hover:bg-neutral-700 cursor-pointer"

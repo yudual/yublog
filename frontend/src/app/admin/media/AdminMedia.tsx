@@ -12,7 +12,6 @@ import {
   FileText,
   X,
   Cloud,
-  HardDrive,
   Loader2,
   Sparkles,
 } from "lucide-react";

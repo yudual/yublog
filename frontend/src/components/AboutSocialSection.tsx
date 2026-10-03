@@ -5,6 +5,7 @@ import { ExternalLink, Copy, Check, QrCode, X } from "lucide-react";
 import { SocialIcon, getSocialPlatform } from "@/components/SocialIcons";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toAbsoluteUrl, toHttps } from "@/lib/upload";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 export interface SocialLinkItem {
   type: string;
@@ -53,11 +54,13 @@ export default function AboutSocialSection({ socialLinks }: AboutSocialSectionPr
           const label = platform?.label || item.type;
           const isEmail = item.type.toLowerCase() === "email" || (item.url.includes("@") && !item.url.startsWith("http"));
           const isWechat = item.type.toLowerCase() === "wechat";
+          const safeHttpUrl = toSafeHttpUrl(item.url);
+          const safeImageUrl = toSafeImageUrl(item.url);
           const isImage =
             /\.(png|jpe?g|webp|gif|svg)($|\?)/i.test(item.url) ||
             item.url.startsWith("/uploads/") ||
-            item.url.includes("data:image/");
-          const isHttpUrl = /^https?:\/\//i.test(item.url);
+            Boolean(safeImageUrl && !safeHttpUrl);
+          const isHttpUrl = Boolean(safeHttpUrl);
 
           // 显示文字摘要（截取过长 URL）
           let displayDetail = item.url;
@@ -67,7 +70,7 @@ export default function AboutSocialSection({ socialLinks }: AboutSocialSectionPr
             displayDetail = "点击查看 / 扫码关注";
           } else if (isHttpUrl) {
             try {
-              const u = new URL(item.url);
+              const u = new URL(safeHttpUrl || item.url);
               displayDetail = `${u.hostname}${u.pathname.length > 1 ? u.pathname : ""}`;
             } catch {
               displayDetail = item.url;
@@ -76,7 +79,8 @@ export default function AboutSocialSection({ socialLinks }: AboutSocialSectionPr
 
           // 1. 如果是图片（如公众号二维码）
           if (isImage || (isWechat && (item.url.startsWith("http") || item.url.startsWith("/")))) {
-            const imgSrc = toHttps(toAbsoluteUrl(item.url));
+            const imgSrc = safeImageUrl ? toHttps(toAbsoluteUrl(safeImageUrl)) : "";
+            if (!imgSrc) return null;
             return (
               <div
                 key={idx}
@@ -117,7 +121,7 @@ export default function AboutSocialSection({ socialLinks }: AboutSocialSectionPr
             return (
               <a
                 key={idx}
-                href={item.url}
+                href={safeHttpUrl || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative flex items-center justify-between rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-50/70 dark:bg-neutral-900/50 p-3.5 shadow-xs backdrop-blur-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-sm"
@@ -147,7 +151,7 @@ export default function AboutSocialSection({ socialLinks }: AboutSocialSectionPr
           }
 
           // 3. 邮箱或纯文本账号（如微信号/小红书号）支持一键复制与唤起
-          const cleanVal = isEmail ? item.url.replace(/^mailto:/, "") : item.url;
+          const cleanVal = isEmail ? item.url.replace(/^mailto:/i, "") : item.url;
           const isCopied = copiedIdx === idx;
 
           return (

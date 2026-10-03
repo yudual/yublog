@@ -55,6 +55,7 @@ import { uploadAudio, uploadDirect, uploadImage, uploadVideo, toAbsoluteUrl, toH
 import { PUBLIC_API_URL } from "@/lib/api-fetch";
 import { notifyContentUpdated } from "@/lib/content-sync";
 import { splitMotionPhoto } from "@/lib/motion-photo";
+import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
 import { useExitAnimation } from "@/lib/use-exit-animation";
 import RichTextEditor from "./RichTextEditor";
@@ -505,10 +506,10 @@ export default function TopBar({ coverHeight = 300 }: TopBarProps) {
                       }}
                       className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-wechat-hover dark:hover:bg-white/5"
                     >
-                      {item.cover ? (
+                      {toSafeImageUrl(item.cover) ? (
                         <div className="mt-0.5 h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-wechat-bubble dark:bg-white/5">
                           <LazyImage
-                            src={item.cover}
+                            src={toAbsoluteUrl(toSafeImageUrl(item.cover) || "")}
                             alt={item.title || item.excerpt || ""}
                             className="h-full w-full object-cover"
                           />
@@ -716,8 +717,9 @@ export default function TopBar({ coverHeight = 300 }: TopBarProps) {
                     <ul>
                       {friendLinks.map((link) => (
                         <li key={link.id}>
+                          {toSafeHttpUrl(link.url) ? (
                           <a
-                            href={link.url}
+                            href={toSafeHttpUrl(link.url) || undefined}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-wechat-hover"
@@ -745,6 +747,7 @@ export default function TopBar({ coverHeight = 300 }: TopBarProps) {
                             </div>
                             <ExternalLink className="h-4 w-4 shrink-0 text-wechat-time" />
                           </a>
+                          ) : null}
                         </li>
                       ))}
                       {friendsLoadingMore &&
@@ -2331,9 +2334,9 @@ export function PublishModal({
             {video && (
               <div className="relative flex items-center gap-2 rounded-md bg-wechat-bubble p-2 dark:bg-white/5">
                 <div className="h-12 w-16 shrink-0 overflow-hidden rounded bg-black/10 dark:bg-white/10">
-                  {video.cover ? (
+                  {toSafeImageUrl(video.cover) ? (
                     <LazyImage
-                      src={video.cover.startsWith("http") ? video.cover : `${audioBase}${video.cover}`}
+                      src={toAbsoluteUrl(toSafeImageUrl(video.cover) || "")}
                       alt=""
                       className="h-full w-full object-cover"
                     />
@@ -2369,20 +2372,20 @@ export function PublishModal({
         )}
 
         {/* 链接卡片预览 */}
-        {linkCard && (
+        {linkCard && toSafeHttpUrl(linkCard.url) && (
           <div className="mt-3 relative">
             <div className="flex items-stretch overflow-hidden rounded-[8px] bg-[#f2f2f2] transition-colors hover:bg-[#eaeaea] active:bg-[#e0e0e0] dark:bg-[#2a2a30] dark:hover:bg-[#33333a] dark:active:bg-[#3a3a42]">
               <a
-                href={linkCard.url}
+                href={toSafeHttpUrl(linkCard.url) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-stretch"
               >
                 {/* 左侧方形封面 */}
                 <div className="flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden bg-black/[0.02] dark:bg-white/[0.02]">
-                  {linkCard.image && (
+                  {toSafeImageUrl(linkCard.image) && (
                     <LazyImage
-                      src={linkCard.image}
+                      src={toSafeImageUrl(linkCard.image) || ""}
                       alt=""
                       className="h-full w-full object-contain p-1.5"
                       onError={(e) => {
@@ -2394,7 +2397,7 @@ export function PublishModal({
                 {/* 右侧内容区 — 半透明背景，与音乐卡片一致 */}
                 <div className="flex min-w-0 flex-1 flex-col justify-center bg-white/35 px-3 dark:bg-white/[0.04]">
                   <p className="line-clamp-1 text-[14px] font-medium leading-[20px] text-black/[0.87] dark:text-white/90">
-                    {linkCard.title || linkCard.url}
+                    {linkCard.title || toSafeHttpUrl(linkCard.url)}
                   </p>
                   {linkCard.description && (
                     <p className="line-clamp-2 mt-0.5 text-[12px] leading-[15px] text-black/50 dark:text-white/50">
