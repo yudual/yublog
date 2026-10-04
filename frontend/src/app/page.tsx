@@ -7,7 +7,6 @@ import AdminNotifications from "@/components/AdminNotifications";
 import EditPostModal from "@/components/EditPostModal";
 import ProfileScrollRestoration from "@/components/profile/ProfileScrollRestoration";
 import HeroSection from "@/components/home/HeroSection";
-import HeroParticles from "@/components/home/HeroParticles";
 import { fetchOwner, fetchPostsPage, fetchSiteSettings } from "@/lib/server-data";
 
 const PAGE_SIZE = 10;
@@ -40,10 +39,7 @@ export default async function Home() {
 
   return (
     <div id="scroll-root" className="relative min-h-screen flex flex-col overflow-x-clip bg-[#faf9f6] dark:bg-[#0a0a0d] text-neutral-900 dark:text-neutral-100 transition-colors">
-      {/* 1. 全局精细星空微粒与流星交互画布 (Fixed 背景层，带多图层分速滚动视差与天球仪经纬刻度网) */}
-      <HeroParticles fixed />
-
-      {/* 2. 空间纵深分布的微光极光弥散层 (Absolute Spatial Aurora Layers - 随滚动真实穿行星海，彻底打破粘滞感) */}
+      {/* 空间纵深分布的微光极光弥散层 (Absolute Spatial Aurora Layers) */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
         {/* 顶部主星云 - 蓝紫极光 (跟随 Hero) */}
         <div className="absolute -top-36 -left-24 h-[520px] w-[520px] sm:h-[720px] sm:w-[720px] rounded-full bg-gradient-to-br from-indigo-400/[0.115] via-purple-400/[0.095] to-transparent dark:from-indigo-600/[0.16] dark:via-purple-700/[0.12] to-transparent blur-[160px]" />
