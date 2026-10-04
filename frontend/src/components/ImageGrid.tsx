@@ -278,8 +278,8 @@ export default function ImageGrid({ images }: ImageGridProps) {
     const ratio = singleRatio ?? 4 / 3;
     const isLandscape = ratio >= 1;
     const widthValue = isLandscape
-      ? "min(100%, var(--single-img-max, 280px))"
-      : `min(100%, calc(var(--single-img-height, 240px) * ${ratio}))`;
+      ? "min(100%, var(--single-img-max, 290px))"
+      : `min(100%, calc(var(--single-img-height, 250px) * ${ratio}))`;
 
     const img = display[0];
     const src = getImageSrc(img);
@@ -384,10 +384,10 @@ export default function ImageGrid({ images }: ImageGridProps) {
   return (
     <>
       <div
-        className={`mt-2 grid gap-[4px] ${
+        className={`mt-2 grid gap-1.5 sm:gap-2 ${
           cols === 2
-            ? "max-w-[min(60vw,240px)] md:max-w-[min(50vw,300px)]"
-            : "max-w-[min(72vw,270px)] md:max-w-[min(64vw,340px)]"
+            ? "max-w-[min(60vw,240px)] md:max-w-[340px]"
+            : "max-w-[min(76vw,290px)] md:max-w-[460px]"
         }`}
         style={{
           gridTemplateColumns: `repeat(${cols}, 1fr)`,

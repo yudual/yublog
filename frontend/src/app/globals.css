@@ -35,14 +35,14 @@
   --adm-button-height: 40px;
   --adm-button-radius: 12px;
 
-  /* ImageGrid 单图尺寸 — 桌面端增大（配合 600px 卡片宽度） */
-  --single-img-max: 280px;
-  --single-img-height: 240px;
+  /* ImageGrid 单图尺寸 — 桌面端适度优化展示 */
+  --single-img-max: 290px;
+  --single-img-height: 250px;
 }
 @media (min-width: 768px) {
   :root {
-    --single-img-max: 320px;
-    --single-img-height: 280px;
+    --single-img-max: 380px;
+    --single-img-height: 310px;
   }
 }
 
@@ -363,16 +363,98 @@ button:focus-visible {
 @keyframes hero-glow {
   0%, 100% {
     transform: scale(1) translate(0, 0);
-    opacity: 0.4;
+    opacity: 0.45;
   }
   50% {
-    transform: scale(1.18) translate(1%, 2%);
-    opacity: 0.65;
+    transform: scale(1.15) translate(1.5%, 2%);
+    opacity: 0.75;
   }
 }
 
 .animate-hero-glow {
-  animation: hero-glow 10s ease-in-out infinite;
+  animation: hero-glow 8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* ── 空灵极光与星云慢呼吸系统 (Ambient Spatial Aurora Floating) ── */
+/* ── 空灵极光原位温润慢呼吸系统 (零位移稳固呼吸，杜绝边缘切光与画面晃动) ── */
+@keyframes aurora-drift-primary {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.95;
+  }
+}
+
+@keyframes aurora-drift-secondary {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.68;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.92;
+  }
+}
+
+@keyframes aurora-drift-horizon {
+  0%, 100% {
+    transform: translate(-50%, 0) scaleX(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate(-50%, 0) scaleX(1.04);
+    opacity: 0.9;
+  }
+}
+
+@keyframes aurora-drift-ambient {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.88;
+  }
+}
+
+.animate-aurora-primary {
+  animation: aurora-drift-primary 8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-aurora-secondary {
+  animation: aurora-drift-secondary 10s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-aurora-horizon {
+  animation: aurora-drift-horizon 9s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.animate-aurora-ambient {
+  animation: aurora-drift-ambient 11s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* ── 实体特种艺术纸微肌理层 (Organic Fine Paper Grain Texture) ── */
+.paper-grain-texture {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.065'/%3E%3C/svg%3E");
+}
+
+/* ── 巨幕建筑级 "YU" 空灵浮水印质感 (严谨光学居中 + 发丝级轮廓) ── */
+.watermark-yu-text {
+  -webkit-text-stroke: 1px rgba(0, 0, 0, 0.04);
+  letter-spacing: 0.28em;
+  margin-right: -0.28em;
+}
+.dark .watermark-yu-text {
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.07);
 }
 
 @keyframes bounce-gentle {
@@ -1141,25 +1223,27 @@ img.inline-emoji.emoji-error {
 .article-content a:hover {
   text-decoration: underline;
 }
-/* ── 内联代码：红色文字（主流代码高亮风格），严格排除 pre 内部代码块 ── */
+/* ── 内联代码：现代优雅中性排版风格，严格排除 pre 内部代码块 ── */
 .article-editor-area :not(pre) > code,
 .article-content :not(pre) > code,
 .rich-editor-area :not(pre) > code,
 .rich-content :not(pre) > code {
-  background: rgba(239, 68, 68, 0.08);
-  color: #e83a3a;
-  padding: 0.15em 0.35em;
-  border-radius: 3px;
-  font-size: 0.875em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: rgba(0, 0, 0, 0.05);
+  color: #1e293b;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 0.16em 0.38em;
+  border-radius: 4px;
+  font-size: 0.86em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   word-break: break-all;
 }
 .dark .article-editor-area :not(pre) > code,
 .dark .article-content :not(pre) > code,
 .dark .rich-editor-area :not(pre) > code,
 .dark .rich-content :not(pre) > code {
-  background: rgba(239, 68, 68, 0.15) !important;
-  color: #ff6b6b !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
 }
 /* pre 内的代码块：彻底隔离内联样式，交由 highlight.js 自由着色 */
 .article-editor-area pre code,

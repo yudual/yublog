@@ -21,12 +21,14 @@ interface LeftSidebarProps {
   owner: User;
   siteSettings?: MomentsSiteSettings | null;
   momentsCount: number;
+  activeCategory?: string;
 }
 
 export function MomentsLeftSidebar({
   owner,
   siteSettings,
   momentsCount,
+  activeCategory,
 }: LeftSidebarProps) {
   const avatarUrl = resolveAvatar(owner.avatar, owner.email || "", 128);
   const nickname = owner.nickname || siteSettings?.siteName || "博主";
@@ -123,16 +125,38 @@ export function MomentsLeftSidebar({
           支持图文、九宫格、实况图、短视频与背景音乐。
         </p>
 
-        {/* 常用话题标签 */}
-        <div className="mt-3.5 flex flex-wrap gap-1.5 border-t border-black/[0.04] dark:border-white/[0.05] pt-3">
-          {["#日常", "#随手拍", "#随想", "#生活", "#摄影", "#岁岁念"].map((tag) => (
-            <span
-              key={tag}
-              className="rounded-lg bg-neutral-100/90 dark:bg-neutral-800/80 px-2 py-1 text-[11px] text-neutral-600 dark:text-neutral-400"
-            >
-              {tag}
-            </span>
-          ))}
+        {/* 常用话题与分类筛选 */}
+        <div className="mt-3.5 space-y-2 border-t border-black/[0.04] dark:border-white/[0.05] pt-3">
+          <div className="flex items-center justify-between text-[11px] text-neutral-400">
+            <span>话题筛选</span>
+            {activeCategory && (
+              <Link
+                href="/moments"
+                className="text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+              >
+                全部
+              </Link>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {["#日常", "#随手拍", "#随想", "#生活", "#摄影", "#岁岁念"].map((tag) => {
+              const catName = tag.replace(/^#/, "");
+              const isSelected = activeCategory === catName;
+              return (
+                <Link
+                  key={tag}
+                  href={isSelected ? "/moments" : `/moments?category=${encodeURIComponent(catName)}`}
+                  className={`rounded-lg px-2.5 py-1 text-[11px] transition-all duration-150 cursor-pointer ${
+                    isSelected
+                      ? "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-neutral-950 font-medium shadow-xs"
+                      : "bg-neutral-100/90 hover:bg-neutral-200/80 dark:bg-neutral-800/80 dark:hover:bg-neutral-700/80 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white"
+                  }`}
+                >
+                  {tag}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
     </aside>

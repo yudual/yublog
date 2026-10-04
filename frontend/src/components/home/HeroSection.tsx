@@ -58,6 +58,7 @@ export default function HeroSection({ owner, siteSettings, postsCount }: HeroSec
   }, [allSocialLinks, HERO_ALLOWED_PLATFORMS]);
 
   const [avatarSrc, setAvatarSrc] = useState(avatarUrl);
+
   useEffect(() => {
     setAvatarSrc(avatarUrl);
   }, [avatarUrl]);
@@ -90,12 +91,12 @@ export default function HeroSection({ owner, siteSettings, postsCount }: HeroSec
 
       {/* ================= 居中核心内容区 ================= */}
       <div className="relative z-10 my-auto flex flex-col items-center text-center max-w-2xl mx-auto w-full pt-4">
-        {/* ============ 巨幕建筑级空灵字母浮水印 (Architectural Cosmic Watermark "YU") ============ */}
+        {/* ============ 巨幕建筑级空灵字母浮水印 (严谨光学居中 + 发丝微轮廓，绝对稳固无晃动) ============ */}
         <div
           className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 select-none opacity-90 dark:opacity-85"
           aria-hidden="true"
         >
-          <span className="font-sans font-black text-[160px] sm:text-[230px] md:text-[290px] tracking-[0.24em] leading-none bg-gradient-to-b from-neutral-900/[0.07] via-amber-500/[0.065] to-transparent dark:from-white/[0.10] dark:via-amber-400/[0.08] dark:to-transparent bg-clip-text text-transparent pl-8 sm:pl-12">
+          <span className="block font-sans font-extrabold text-[160px] sm:text-[230px] md:text-[285px] leading-none bg-gradient-to-b from-neutral-900/[0.07] via-amber-500/[0.045] to-transparent dark:from-white/[0.09] dark:via-amber-400/[0.05] dark:to-transparent bg-clip-text text-transparent watermark-yu-text">
             YU
           </span>
         </div>

@@ -69,6 +69,11 @@ export default function PostList({
   const router = useRouter();
   const isInitialMount = useRef(true);
 
+  // 同步外部传入的 category prop 变更
+  useEffect(() => {
+    setActiveCategory(category || "");
+  }, [category]);
+
   // 从传入数据和常见分类推导分类标签
   const categories = useMemo(() => {
     if (type !== "article") return [];
@@ -378,7 +383,11 @@ export default function PostList({
                 {type === "article" ? "该分类下暂无文章" : "暂无动态"}
               </p>
               <p className="mt-1 text-xs text-neutral-400 dark:text-neutral-500">
-                {type === "article" ? "该分类下暂无已发布文章~" : "博主暂未发布动态~"}
+                {type === "article"
+                  ? "该分类下暂无已发布文章~"
+                  : activeCategory
+                    ? `#${activeCategory} 话题下暂无动态~`
+                    : "博主暂未发布动态~"}
               </p>
             </>
           )}

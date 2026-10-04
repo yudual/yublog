@@ -17,8 +17,9 @@ export const metadata: Metadata = {
   description: "日记、连载小说、动漫心得、日常吐槽与生活光芒",
 };
 
-async function getMoments() {
-  const result = await fetchPostsPage("page=1&limit=10&type=moment");
+async function getMoments(category?: string) {
+  const catQuery = category ? `&category=${encodeURIComponent(category)}` : "";
+  const result = await fetchPostsPage(`page=1&limit=10&type=moment${catQuery}`);
   const data = result.data.filter((p) => p.category !== "项目" && p.type !== "project");
   return { ...result, data };
 }
@@ -28,9 +29,17 @@ async function getRecentArticles(): Promise<Post[]> {
   return result.data.filter((p) => p.category !== "项目");
 }
 
-export default async function MomentsPage() {
+export default async function MomentsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ category?: string | string[] }>;
+}) {
+  const sp = searchParams ? await searchParams : {};
+  const rawCat = Array.isArray(sp.category) ? sp.category[0] : sp.category;
+  const activeCategory = typeof rawCat === "string" ? rawCat.trim() : "";
+
   const [momentsData, owner, recentArticles, settings] = await Promise.all([
-    getMoments(),
+    getMoments(activeCategory),
     fetchOwner(),
     getRecentArticles(),
     fetchSiteSettings(),
@@ -41,7 +50,7 @@ export default async function MomentsPage() {
       <DesktopDecorations />
 
       <ChannelHeader
-        title="岁岁念"
+        title={activeCategory ? `岁岁念 · #${activeCategory}` : "岁岁念"}
         subtitle="日记、故事小说、动漫心得、日常吐槽与生活光芒"
         icon="🍃"
         count={momentsData.total}
@@ -55,16 +64,19 @@ export default async function MomentsPage() {
             owner={owner}
             siteSettings={settings}
             momentsCount={momentsData.total}
+            activeCategory={activeCategory}
           />
 
           {/* 中间动态流主体 */}
           <main className="relative flex-1 max-w-[760px] xl:max-w-[880px] 2xl:max-w-[980px] min-w-0 w-full overflow-hidden rounded-3xl bg-wechat-white shadow-[0_8px_40px_-12px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.3)] border border-neutral-200/60 dark:border-neutral-800/80">
             <PostList
+              key={activeCategory || "all"}
               initialPosts={momentsData.data}
               initialHasMore={momentsData.hasMore}
               initialPage={1}
               initialError={momentsData.error}
               type="moment"
+              category={activeCategory}
             />
           </main>
 

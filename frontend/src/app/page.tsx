@@ -7,6 +7,7 @@ import AdminNotifications from "@/components/AdminNotifications";
 import EditPostModal from "@/components/EditPostModal";
 import ProfileScrollRestoration from "@/components/profile/ProfileScrollRestoration";
 import HeroSection from "@/components/home/HeroSection";
+import SpatialAuroraBackground from "@/components/home/SpatialAuroraBackground";
 import { fetchOwner, fetchPostsPage, fetchSiteSettings } from "@/lib/server-data";
 
 const PAGE_SIZE = 10;
@@ -39,19 +40,8 @@ export default async function Home() {
 
   return (
     <div id="scroll-root" className="relative min-h-screen flex flex-col overflow-x-clip bg-[#faf9f6] dark:bg-[#0a0a0d] text-neutral-900 dark:text-neutral-100 transition-colors">
-      {/* 空间纵深分布的微光极光弥散层 (Absolute Spatial Aurora Layers) */}
-      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden="true">
-        {/* 顶部主星云 - 蓝紫极光 (跟随 Hero) */}
-        <div className="absolute -top-36 -left-24 h-[520px] w-[520px] sm:h-[720px] sm:w-[720px] rounded-full bg-gradient-to-br from-indigo-400/[0.115] via-purple-400/[0.095] to-transparent dark:from-indigo-600/[0.16] dark:via-purple-700/[0.12] to-transparent blur-[160px]" />
-        {/* 顶部副星云 - 暖杏落日 (跟随 Hero) */}
-        <div className="absolute -top-24 -right-24 h-[480px] w-[480px] sm:h-[680px] sm:w-[680px] rounded-full bg-gradient-to-bl from-amber-300/[0.115] via-rose-300/[0.095] to-transparent dark:from-amber-500/[0.14] dark:via-rose-600/[0.11] to-transparent blur-[160px]" />
-        {/* 中部地平过渡星云 - 青碧冷星光 (位于 Hero 底部与动态流交接处) */}
-        <div className="absolute top-[620px] sm:top-[680px] left-1/2 -translate-x-1/2 h-[420px] w-[90%] max-w-4xl rounded-full bg-gradient-to-r from-teal-300/[0.08] via-cyan-300/[0.07] to-transparent dark:from-cyan-600/[0.12] dark:via-teal-700/[0.09] to-transparent blur-[150px]" />
-        {/* 动态流中深空星云 - 薰衣草微光 (随着滚动探索逐渐显现) */}
-        <div className="absolute top-[1350px] -right-36 h-[460px] w-[460px] sm:h-[650px] sm:w-[650px] rounded-full bg-gradient-to-l from-purple-300/[0.08] via-pink-300/[0.07] to-transparent dark:from-purple-800/[0.12] dark:via-pink-800/[0.09] to-transparent blur-[150px]" />
-        {/* 底部深空回响星云 */}
-        <div className="absolute bottom-[200px] -left-36 h-[420px] w-[420px] sm:h-[600px] sm:w-[600px] rounded-full bg-gradient-to-tr from-indigo-300/[0.07] via-purple-300/[0.06] to-transparent dark:from-indigo-900/[0.12] dark:via-purple-950/[0.09] to-transparent blur-[150px]" />
-      </div>
+      {/* 空间纵深分布的微光极光弥散层与微纸肌理 (支持慢呼吸流体 + 空间微视差) */}
+      <SpatialAuroraBackground />
 
       {/* 3. 首页 Hero 区域 */}
       <div className="relative z-10 w-full">
