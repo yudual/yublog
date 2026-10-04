@@ -101,7 +101,7 @@ export default function HeroSection({ owner, siteSettings, postsCount }: HeroSec
         </div>
 
         {/* ============ 头像展示：柔和极光微晕 + 发丝精细渐变细环 ============ */}
-        <div className="group relative mb-5 z-10">
+        <div className="group relative mb-6 z-10">
           {/* 柔光多色极光弥散晕 */}
           <div className="absolute -inset-3 sm:-inset-3.5 rounded-full bg-gradient-to-tr from-amber-300/20 via-rose-300/15 to-indigo-300/15 dark:from-amber-400/20 dark:via-purple-500/16 dark:to-cyan-400/16 blur-lg opacity-75 group-hover:opacity-95 group-hover:scale-105 transition-all duration-700" />
 
@@ -120,18 +120,6 @@ export default function HeroSection({ owner, siteSettings, postsCount }: HeroSec
               />
             </div>
           </div>
-        </div>
-
-        {/* 优雅克制的“YU”标识表达 (Clean Brand Monogram Pill) */}
-        <div className="mb-3.5 inline-flex items-center gap-2 rounded-full border border-neutral-200/70 dark:border-white/[0.08] bg-white/70 dark:bg-neutral-900/70 px-3.5 py-1 text-[11px] font-mono backdrop-blur-md shadow-xs">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
-          <span className="tracking-[0.2em] text-neutral-800 dark:text-neutral-200 uppercase font-semibold">
-            YU · 予
-          </span>
-          <span className="text-neutral-300 dark:text-neutral-700">·</span>
-          <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
-            YuBlog
-          </span>
         </div>
 
         {/* 标题：纯净字距排印 */}
