@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { BookMarked, ArrowRight, PenLine } from "lucide-react";
 import ChannelHeader from "@/components/channel/ChannelHeader";
 import PostList from "@/components/PostList";
 import CollectionStrip from "@/components/CollectionStrip";
@@ -37,9 +39,19 @@ export default async function ArticlesPage() {
       <ChannelHeader
         title="文章"
         subtitle="深度长文、技术思考与随笔写作"
-        icon="✍️"
+        icon={<PenLine className="h-4.5 w-4.5 text-blue-500 dark:text-blue-400" />}
         count={articlesData.total}
         maxWidth="max-w-5xl xl:max-w-6xl 2xl:max-w-7xl"
+        rightAction={
+          <Link
+            href="/collections"
+            className="group/col inline-flex items-center gap-1.5 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 bg-white/90 dark:bg-neutral-800/90 px-3.5 py-1.5 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 hover:text-blue-600 dark:hover:text-blue-400 backdrop-blur-md shadow-2xs hover:shadow-xs active:scale-[0.97] transition-all"
+          >
+            <BookMarked className="h-3.5 w-3.5 text-blue-500 group-hover/col:scale-110 transition-transform" />
+            <span>系列专栏</span>
+            <ArrowRight className="h-3 w-3 text-neutral-400 group-hover/col:text-blue-600 dark:group-hover/col:text-blue-400 group-hover/col:translate-x-0.5 transition-all" />
+          </Link>
+        }
       />
 
       {/* 博客化文章列表主体 */}

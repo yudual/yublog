@@ -236,12 +236,12 @@ export function MomentsRightSidebar({
 
         <div className="mt-4 space-y-1.5 border-t border-black/[0.04] dark:border-white/[0.05] pt-3">
           <Link
-            href="/archives"
+            href="/"
             className="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
           >
             <span className="flex items-center gap-1.5">
               <History className="h-3.5 w-3.5 text-neutral-400" />
-              时光机 · 历史动态
+              博客首页 · 动态全览
             </span>
             <span className="text-[11px] text-neutral-400">→</span>
           </Link>

@@ -56,10 +56,7 @@ export async function POST(request: NextRequest) {
     "/articles",
     "/moments",
     "/projects",
-    "/archives",
     "/about",
-    "/equipment",
-    "/labs",
   ];
   for (const p of corePaths) {
     try {

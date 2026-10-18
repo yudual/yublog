@@ -8,6 +8,7 @@ import MomentCard from "@/components/MomentCard";
 import ArticleFeedCard from "@/components/ArticleFeedCard";
 import ArticleCollectionFeedCard from "@/components/ArticleCollectionFeedCard";
 import ProjectCard from "@/components/ProjectCard";
+import ScrollReveal from "@/components/ui/ScrollReveal";
 import { PostCardSkeleton, ArticleCardSkeleton } from "@/components/Skeleton";
 import { useSiteSettings } from "@/lib/site-settings-store";
 import { authFetchHeaders } from "@/lib/auth";
@@ -16,16 +17,24 @@ import type { Post } from "@/lib/types";
 
 
 export function FeedDispatcher({ post, index }: { post: Post; index: number }) {
-  if (post.category === "项目" || post.type === "project") {
-    return <ProjectCard post={post} index={index} variant="feed" />;
-  }
-  if (post.type === "collection") {
-    return <ArticleCollectionFeedCard post={post} index={index} />;
-  }
-  if (post.type === "article") {
-    return <ArticleFeedCard post={post} index={index} variant="feed" />;
-  }
-  return <MomentCard post={post} index={index} />;
+  const content = (() => {
+    if (post.category === "项目" || post.type === "project") {
+      return <ProjectCard post={post} index={index} variant="feed" />;
+    }
+    if (post.type === "collection") {
+      return <ArticleCollectionFeedCard post={post} index={index} />;
+    }
+    if (post.type === "article") {
+      return <ArticleFeedCard post={post} index={index} variant="feed" />;
+    }
+    return <MomentCard post={post} index={index} />;
+  })();
+
+  return (
+    <ScrollReveal delay={Math.min((index % 6) * 50, 200)}>
+      {content}
+    </ScrollReveal>
+  );
 }
 
 export const FeedItemDispatcher = FeedDispatcher;
@@ -452,7 +461,9 @@ export default function PostList({
       ) : type === "moment" ? (
         <section className="divide-hairline">
           {posts.map((post, index) => (
-            <MomentCard key={post.id} post={post} index={index} />
+            <ScrollReveal key={post.id} delay={Math.min((index % 6) * 50, 200)}>
+              <MomentCard post={post} index={index} />
+            </ScrollReveal>
           ))}
           {loadingMore &&
             Array.from({ length: 2 }).map((_, i) => (

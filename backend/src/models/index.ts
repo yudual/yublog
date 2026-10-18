@@ -12,8 +12,6 @@ import MusicPlaylist from "./MusicPlaylist";
 import MusicTrack from "./MusicTrack";
 import UploadIntent from "./UploadIntent";
 import ContentPage from "./ContentPage";
-import CatalogCategory from "./CatalogCategory";
-import CatalogItem from "./CatalogItem";
 
 // Associations
 User.hasMany(Post, { foreignKey: "userId", as: "posts" });
@@ -50,11 +48,6 @@ Media.hasMany(MusicTrack, { foreignKey: "audioMediaId", as: "audioPlaylistTracks
 Media.hasMany(MusicTrack, { foreignKey: "coverMediaId", as: "coverPlaylistTracks" });
 Media.hasMany(MusicTrack, { foreignKey: "lyricMediaId", as: "lyricPlaylistTracks" });
 
-CatalogCategory.hasMany(CatalogItem, { foreignKey: "categoryId", as: "items", onDelete: "CASCADE" });
-CatalogItem.belongsTo(CatalogCategory, { foreignKey: "categoryId", as: "category" });
-CatalogItem.belongsTo(Media, { foreignKey: "imageMediaId", as: "imageMedia" });
-Media.hasMany(CatalogItem, { foreignKey: "imageMediaId", as: "catalogItems" });
-
 export {
   sequelize,
   User,
@@ -70,8 +63,6 @@ export {
   MusicTrack,
   UploadIntent,
   ContentPage,
-  CatalogCategory,
-  CatalogItem,
   siteSettingTextDefaults,
 };
 export { getMediaCategory } from "./Media";

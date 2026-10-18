@@ -41,11 +41,17 @@ import {
   Sparkles,
   Save,
   X,
+  ArrowLeft,
+  FolderOpen,
+  CheckCircle2,
+  SlidersHorizontal,
+  Check,
 } from "lucide-react";
 import { markdownToHtml, copyToClipboard } from "@/lib/markdown";
 import { parseFrontmatter, type ArticleFrontmatter } from "@/lib/frontmatter";
 import { calculateReadingStats } from "@/lib/reading-time";
 import { uploadImage, toAbsoluteUrl } from "@/lib/upload";
+import MediaPicker, { type PickerMediaItem } from "../MediaPicker";
 import LinkCardPanel from "../admin/LinkCardPanel";
 import MusicPanel from "../admin/MusicPanel";
 import VideoPanel from "../admin/VideoPanel";
@@ -68,6 +74,10 @@ export interface MarkdownEditorProps {
   className?: string;
   onFrontmatterChange?: (data: ArticleFrontmatter) => void;
   onSave?: () => void;
+  onPublish?: () => void;
+  onOpenSettings?: () => void;
+  title?: string;
+  onTitleChange?: (title: string) => void;
   saving?: boolean;
 }
 
@@ -81,6 +91,10 @@ export default function MarkdownEditor({
   className = "",
   onFrontmatterChange,
   onSave,
+  onPublish,
+  onOpenSettings,
+  title = "",
+  onTitleChange,
   saving = false,
 }: MarkdownEditorProps) {
   const [viewMode, setViewMode] = useState<"split" | "edit" | "preview">("split");
@@ -92,7 +106,7 @@ export default function MarkdownEditor({
   const [customHeight, setCustomHeight] = useState<number | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
 
-  // Panels
+  // 弹窗状态
   const [showMusicPanel, setShowMusicPanel] = useState(false);
   const [showVideoPanel, setShowVideoPanel] = useState(false);
   const [showDoubanPicker, setShowDoubanPicker] = useState(false);
@@ -100,17 +114,12 @@ export default function MarkdownEditor({
   const [showCalloutMenu, setShowCalloutMenu] = useState(false);
   const [showHeadingMenu, setShowHeadingMenu] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
 
-  useEffect(() => {
-    if (!isFullscreen) return;
-    const onEsc = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsFullscreen(false);
-      }
-    };
-    window.addEventListener("keydown", onEsc);
-    return () => window.removeEventListener("keydown", onEsc);
-  }, [isFullscreen]);
+  // 优雅插入超链接弹窗状态
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkModalText, setLinkModalText] = useState("");
+  const [linkModalUrl, setLinkModalUrl] = useState("https://");
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -118,6 +127,21 @@ export default function MarkdownEditor({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isScrollingRef = useRef<"editor" | "preview" | null>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // 记录光标位置防止外部更新导致光标跳位
+  const lastSelectionRef = useRef<{ start: number; end: number } | null>(null);
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape" && !showLinkModal && !showHelpModal && !showMediaPicker) {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [isFullscreen, showLinkModal, showHelpModal, showMediaPicker]);
+
   const isDraggingResizeRef = useRef(false);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
@@ -167,7 +191,23 @@ export default function MarkdownEditor({
     const line = lines.length;
     const col = (lines[lines.length - 1]?.length || 0) + 1;
     setCursorPos({ line, col });
+
+    lastSelectionRef.current = {
+      start: textarea.selectionStart,
+      end: textarea.selectionEnd,
+    };
   }, []);
+
+  // 保持光标位置，外部 value 改变时若处于编辑态则恢复光标，杜绝乱跳
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    if (document.activeElement === textarea && lastSelectionRef.current) {
+      const { start, end } = lastSelectionRef.current;
+      const maxLen = textarea.value.length;
+      textarea.setSelectionRange(Math.min(start, maxLen), Math.min(end, maxLen));
+    }
+  }, [value]);
 
   // 解析并同步 Frontmatter
   const parsed = useMemo(() => {
@@ -225,6 +265,10 @@ export default function MarkdownEditor({
           start + prefix.length,
           start + prefix.length + selected.length
         );
+        lastSelectionRef.current = {
+          start: start + prefix.length,
+          end: start + prefix.length + selected.length,
+        };
       }, 0);
     },
     [onChange]
@@ -241,7 +285,6 @@ export default function MarkdownEditor({
       const before = textarea.value.slice(0, start);
       const after = textarea.value.slice(end);
 
-      // 确保前后换行干净
       const prefix = before.endsWith("\n\n") || !before ? "" : before.endsWith("\n") ? "\n" : "\n\n";
       const suffix = after.startsWith("\n\n") || !after ? "" : after.startsWith("\n") ? "\n" : "\n\n";
 
@@ -252,12 +295,71 @@ export default function MarkdownEditor({
         textarea.focus();
         const cursorIndex = before.length + prefix.length + template.length;
         textarea.setSelectionRange(cursorIndex, cursorIndex);
+        lastSelectionRef.current = { start: cursorIndex, end: cursorIndex };
       }, 0);
     },
     [onChange]
   );
 
-  // 统一批量图片上传处理器（原子化插入，防止多图竞态及光标错位）
+  // 插入行首块级语法（标题、引用、列表、待办），确保从行首起首并保持排版整洁
+  const insertLinePrefix = useCallback(
+    (prefix: string, defaultText = "内容") => {
+      const textarea = textareaRef.current;
+      if (!textarea) return;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = textarea.value.slice(0, start);
+      const after = textarea.value.slice(end);
+      const selected = textarea.value.slice(start, end) || defaultText;
+
+      const needLineBreak = before && !before.endsWith("\n");
+      const lineBreak = needLineBreak ? "\n" : "";
+      const replacement = `${lineBreak}${prefix}${selected}`;
+      const nextValue = `${before}${replacement}${after}`;
+      onChange(nextValue);
+
+      setTimeout(() => {
+        textarea.focus();
+        const selStart = start + lineBreak.length + prefix.length;
+        const selEnd = selStart + selected.length;
+        textarea.setSelectionRange(selStart, selEnd);
+        lastSelectionRef.current = { start: selStart, end: selEnd };
+      }, 0);
+    },
+    [onChange]
+  );
+
+  // 打开优雅超链接插入弹窗
+  const handleOpenLinkModal = useCallback(() => {
+    const textarea = textareaRef.current;
+    const start = textarea?.selectionStart || 0;
+    const end = textarea?.selectionEnd || 0;
+    const selected = textarea ? textarea.value.slice(start, end) : "";
+    setLinkModalText(selected || "链接标题");
+    setLinkModalUrl("https://");
+    setShowLinkModal(true);
+  }, []);
+
+  // 确认插入超链接
+  const handleConfirmInsertLink = useCallback(() => {
+    const text = linkModalText.trim() || "链接标题";
+    const url = linkModalUrl.trim() || "https://";
+    insertSnippet("[", `](${url})`, text);
+    setShowLinkModal(false);
+  }, [linkModalText, linkModalUrl, insertSnippet]);
+
+  // 从素材库选图并插入
+  const handleSelectFromMediaPicker = useCallback(
+    (item: PickerMediaItem) => {
+      const altName = item.filename.replace(/\.[^.]+$/, "").trim() || "图片";
+      insertBlock(`![${altName}](${toAbsoluteUrl(item.url)})`);
+      setShowMediaPicker(false);
+    },
+    [insertBlock]
+  );
+
+  // 统一批量本地图片上传处理器
   const handleBatchUpload = useCallback(
     async (files: File[]) => {
       const imageFiles = files.filter((f) => f.type.startsWith("image/"));
@@ -300,7 +402,7 @@ export default function MarkdownEditor({
     [token, insertBlock]
   );
 
-  // 处理粘贴（支持截图截屏或剪贴板图片文件直传）
+  // 处理粘贴（截图截屏直传）
   const handlePaste = useCallback(
     (e: ClipboardEvent<HTMLTextAreaElement>) => {
       const items = e.clipboardData?.items;
@@ -340,7 +442,7 @@ export default function MarkdownEditor({
     [handleBatchUpload]
   );
 
-  // 键盘快捷键支持 (Ctrl+B, Ctrl+I, Ctrl+K, Ctrl+S, Tab, Shift+Tab, Enter)
+  // 快捷键支持
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       const isMac =
@@ -348,7 +450,7 @@ export default function MarkdownEditor({
         /Mac|iPod|iPhone|iPad/i.test(navigator.userAgent || navigator.platform || "");
       const isCmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
 
-      // Ctrl + S / Cmd + S: 保存草稿
+      // Ctrl + S: 保存草稿
       if (isCmdOrCtrl && e.key.toLowerCase() === "s") {
         e.preventDefault();
         onSave?.();
@@ -369,13 +471,10 @@ export default function MarkdownEditor({
         return;
       }
 
-      // Ctrl + K: 链接
+      // Ctrl + K: 优雅链接弹窗
       if (isCmdOrCtrl && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        const url = window.prompt("输入链接地址 (URL):", "https://");
-        if (url) {
-          insertSnippet("[", `](${url})`, "链接标题");
-        }
+        handleOpenLinkModal();
         return;
       }
 
@@ -389,7 +488,6 @@ export default function MarkdownEditor({
         const end = textarea.selectionEnd;
 
         if (e.shiftKey) {
-          // 反向缩进
           const before = textarea.value.slice(0, start);
           const lineStart = before.lastIndexOf("\n") + 1;
           const currentLine = textarea.value.slice(lineStart, end);
@@ -404,7 +502,6 @@ export default function MarkdownEditor({
             }, 0);
           }
         } else {
-          // 正向缩进 2 空格
           const nextValue =
             textarea.value.slice(0, start) + "  " + textarea.value.slice(end);
           onChange(nextValue);
@@ -425,11 +522,10 @@ export default function MarkdownEditor({
         const lastLineStart = before.lastIndexOf("\n") + 1;
         const lastLine = before.slice(lastLineStart);
 
-        // 匹配无序列表 (- [*+])
+        // 无序列表
         const unorderedMatch = lastLine.match(/^(\s*[-*+]\s+)(.*)$/);
         if (unorderedMatch) {
           if (!unorderedMatch[2].trim()) {
-            // 当前行为空列表项，按 Enter 自动取消列表
             e.preventDefault();
             const nextValue =
               textarea.value.slice(0, lastLineStart) + textarea.value.slice(start);
@@ -439,7 +535,6 @@ export default function MarkdownEditor({
             }, 0);
             return;
           }
-          // 自动延续无序列表
           e.preventDefault();
           const nextValue =
             textarea.value.slice(0, start) + "\n" + unorderedMatch[1] + textarea.value.slice(start);
@@ -451,7 +546,7 @@ export default function MarkdownEditor({
           return;
         }
 
-        // 匹配任务列表 (- [ ] 或 - [x])
+        // 任务列表
         const taskMatch = lastLine.match(/^(\s*[-*+]\s+\[[ xX]\]\s+)(.*)$/);
         if (taskMatch) {
           if (!taskMatch[2].trim()) {
@@ -465,18 +560,17 @@ export default function MarkdownEditor({
             return;
           }
           e.preventDefault();
-          const nextPrefix = taskMatch[1].replace(/\[[xX]\]/, "[ ]");
           const nextValue =
-            textarea.value.slice(0, start) + "\n" + nextPrefix + textarea.value.slice(start);
+            textarea.value.slice(0, start) + "\n- [ ] " + textarea.value.slice(start);
           onChange(nextValue);
           setTimeout(() => {
-            const newPos = start + 1 + nextPrefix.length;
+            const newPos = start + 1 + 6;
             textarea.setSelectionRange(newPos, newPos);
           }, 0);
           return;
         }
 
-        // 匹配有序列表 (1. )
+        // 有序列表
         const orderedMatch = lastLine.match(/^(\s*)(\d+)\.\s+(.*)$/);
         if (orderedMatch) {
           if (!orderedMatch[3].trim()) {
@@ -491,38 +585,32 @@ export default function MarkdownEditor({
           }
           e.preventDefault();
           const nextNum = parseInt(orderedMatch[2], 10) + 1;
-          const nextPrefix = `${orderedMatch[1]}${nextNum}. `;
+          const continuation = `${orderedMatch[1]}${nextNum}. `;
           const nextValue =
-            textarea.value.slice(0, start) + "\n" + nextPrefix + textarea.value.slice(start);
+            textarea.value.slice(0, start) + "\n" + continuation + textarea.value.slice(start);
           onChange(nextValue);
           setTimeout(() => {
-            const newPos = start + 1 + nextPrefix.length;
+            const newPos = start + 1 + continuation.length;
             textarea.setSelectionRange(newPos, newPos);
           }, 0);
           return;
         }
       }
     },
-    [insertSnippet, onChange, onSave]
+    [onSave, insertSnippet, handleOpenLinkModal, onChange]
   );
 
-  // 双向滚动同步（当分栏显示时，精准按可见内容比例同步，防止死循环抖动）
+  // 左右滚动同步
   const handleEditorScroll = useCallback(() => {
     if (viewMode !== "split") return;
     if (isScrollingRef.current === "preview") return;
-
-    const textarea = textareaRef.current;
+    const editor = textareaRef.current;
     const preview = previewRef.current;
-    if (!textarea || !preview) return;
-
-    const maxEditorScroll = textarea.scrollHeight - textarea.clientHeight;
-    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
-
-    if (maxEditorScroll <= 0 || maxPreviewScroll <= 0) return;
+    if (!editor || !preview) return;
 
     isScrollingRef.current = "editor";
-    const ratio = Math.max(0, Math.min(1, textarea.scrollTop / maxEditorScroll));
-    preview.scrollTop = ratio * maxPreviewScroll;
+    const percent = editor.scrollTop / (editor.scrollHeight - editor.clientHeight || 1);
+    preview.scrollTop = percent * (preview.scrollHeight - preview.clientHeight);
 
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = setTimeout(() => {
@@ -533,19 +621,13 @@ export default function MarkdownEditor({
   const handlePreviewScroll = useCallback(() => {
     if (viewMode !== "split") return;
     if (isScrollingRef.current === "editor") return;
-
-    const textarea = textareaRef.current;
+    const editor = textareaRef.current;
     const preview = previewRef.current;
-    if (!textarea || !preview) return;
-
-    const maxEditorScroll = textarea.scrollHeight - textarea.clientHeight;
-    const maxPreviewScroll = preview.scrollHeight - preview.clientHeight;
-
-    if (maxEditorScroll <= 0 || maxPreviewScroll <= 0) return;
+    if (!editor || !preview) return;
 
     isScrollingRef.current = "preview";
-    const ratio = Math.max(0, Math.min(1, preview.scrollTop / maxPreviewScroll));
-    textarea.scrollTop = ratio * maxEditorScroll;
+    const percent = preview.scrollTop / (preview.scrollHeight - preview.clientHeight || 1);
+    editor.scrollTop = percent * (editor.scrollHeight - editor.clientHeight);
 
     if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
     scrollTimeoutRef.current = setTimeout(() => {
@@ -553,7 +635,7 @@ export default function MarkdownEditor({
     }, 80);
   }, [viewMode]);
 
-  // 预览区复制代码按钮交互（支持安全回退）
+  // 预览区复制代码
   const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     const copyBtn = target.closest(".macos-enhanced-copy") as HTMLButtonElement | null;
@@ -584,16 +666,87 @@ export default function MarkdownEditor({
     <div
       ref={containerRef}
       className={`relative flex flex-col rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#18181c] shadow-sm transition-all overflow-hidden ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none shadow-2xl" : ""
+        isFullscreen ? "fixed inset-0 z-50 rounded-none border-none shadow-2xl bg-white dark:bg-[#141416]" : ""
       } ${className}`}
       style={{
         height: activeHeight,
         minHeight: isFullscreen ? "100vh" : "360px",
       }}
     >
-      {/* 顶部多功能工具栏 (ByteMD / Ghost 风格，所有按钮支持 onMouseDown 防止文本区失焦) */}
+      {/* 全屏模式沉浸式顶栏：提供标题输入、存草稿、属性与正式发布 */}
+      {isFullscreen && (
+        <div className="shrink-0 z-30 flex items-center justify-between gap-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-100/90 dark:bg-[#1c1c20]/95 px-4 py-2.5 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(false)}
+              className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition cursor-pointer shrink-0"
+              title="退出全屏模式 (Esc)"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">退出全屏</span>
+            </button>
+
+            {onTitleChange ? (
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => onTitleChange(e.target.value)}
+                placeholder="在此输入文章标题..."
+                className="bg-transparent text-sm sm:text-base font-bold text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none w-full max-w-xl truncate"
+              />
+            ) : (
+              <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
+                {title || "全屏沉浸创作"}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenSettings && (
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="flex items-center gap-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition cursor-pointer"
+                title="展开属性抽屉"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">文章属性</span>
+              </button>
+            )}
+
+            {onSave && (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={saving}
+                className="flex items-center gap-1 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition cursor-pointer disabled:opacity-50"
+                title="保存草稿 (Ctrl+S)"
+              >
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                <span>存草稿</span>
+              </button>
+            )}
+
+            {onPublish && (
+              <button
+                type="button"
+                onClick={onPublish}
+                disabled={saving}
+                className="flex items-center gap-1 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-medium transition cursor-pointer shadow-xs disabled:opacity-50"
+                title="立即正式发布"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>发布</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 顶部多功能工具栏 */}
       <div className="shrink-0 z-20 flex items-center justify-between gap-2 border-b border-neutral-200/80 dark:border-neutral-800/80 bg-neutral-50/90 dark:bg-[#202025]/90 px-3 py-2 backdrop-blur-md overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap">
-        {/* 左侧：格式化工具组 (小屏保持单行平滑横滑，杜绝挤占打字视口) */}
+        {/* 左侧：格式化工具组 */}
         <div className="flex items-center gap-1 shrink-0">
           {/* 标题下拉菜单 */}
           <div className="relative">
@@ -609,7 +762,7 @@ export default function MarkdownEditor({
             </button>
             {showHeadingMenu && (
               <div
-                className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#28282e] p-1.5 shadow-lg z-30 space-y-0.5"
+                className="absolute left-0 top-full mt-1 w-32 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#28282e] p-1.5 shadow-lg z-30 space-y-0.5 animate-scale-in"
                 onMouseLeave={() => setShowHeadingMenu(false)}
               >
                 {[
@@ -622,7 +775,7 @@ export default function MarkdownEditor({
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => {
-                      insertSnippet(`${"#".repeat(level)} `, "", "标题内容");
+                      insertLinePrefix(`${"#".repeat(level)} `, "标题内容");
                       setShowHeadingMenu(false);
                     }}
                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-white/10 cursor-pointer"
@@ -672,7 +825,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insertSnippet("- ", "", "列表项")}
+            onClick={() => insertLinePrefix("- ", "列表项")}
             className="rounded-lg p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="无序列表"
           >
@@ -681,7 +834,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insertSnippet("1. ", "", "列表项")}
+            onClick={() => insertLinePrefix("1. ", "列表项")}
             className="rounded-lg p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="有序列表"
           >
@@ -690,7 +843,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insertSnippet("- [ ] ", "", "待办任务")}
+            onClick={() => insertLinePrefix("- [ ] ", "待办任务")}
             className="rounded-lg p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="待办任务列表"
           >
@@ -699,7 +852,7 @@ export default function MarkdownEditor({
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => insertSnippet("> ", "", "引用文字")}
+            onClick={() => insertLinePrefix("> ", "引用文字")}
             className="rounded-lg p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="块引用"
           >
@@ -720,7 +873,7 @@ export default function MarkdownEditor({
             </button>
             {showCalloutMenu && (
               <div
-                className="absolute left-0 top-full mt-1 w-36 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#28282e] p-1.5 shadow-lg z-30 space-y-0.5"
+                className="absolute left-0 top-full mt-1 w-36 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#28282e] p-1.5 shadow-lg z-30 space-y-0.5 animate-scale-in"
                 onMouseLeave={() => setShowCalloutMenu(false)}
               >
                 {[
@@ -784,25 +937,25 @@ export default function MarkdownEditor({
 
           <div className="h-4 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-1" />
 
-          {/* 链接与图片 */}
+          {/* 优雅超链接按钮 (避免原生 window.prompt 弹窗阻断) */}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const url = window.prompt("输入链接 URL:", "https://");
-              if (url) insertSnippet("[", `](${url})`, "链接说明");
-            }}
-            className="rounded-lg p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            onClick={handleOpenLinkModal}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
             title="插入超链接 (Ctrl+K)"
           >
-            <Link2 className="h-4 w-4" />
+            <Link2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span>链接</span>
           </button>
+
+          {/* 本地上传插图 */}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
-            title="上传并插入图片（也支持直接粘贴截图或拖放）"
+            title="从本地上传并插入图片（也支持粘贴截图与拖放）"
           >
             <ImageIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             <span>插图</span>
@@ -821,6 +974,18 @@ export default function MarkdownEditor({
               e.target.value = "";
             }}
           />
+
+          {/* 从媒体素材库选择插图 */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => setShowMediaPicker(true)}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            title="从已有素材库中选择图片插入"
+          >
+            <FolderOpen className="h-4 w-4 text-amber-500" />
+            <span>素材库</span>
+          </button>
 
           <div className="h-4 w-[1px] bg-neutral-300 dark:bg-neutral-700 mx-1" />
 
@@ -865,24 +1030,6 @@ export default function MarkdownEditor({
 
         {/* 右侧：视图模式切换、语法速查与全屏 */}
         <div className="flex items-center gap-1.5 shrink-0 pl-1">
-          {isFullscreen && onSave && (
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={onSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 px-3 py-1.5 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-100 disabled:opacity-50 transition cursor-pointer"
-              title="保存草稿 (Ctrl+S)"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              <span>{saving ? "保存中..." : "存草稿"}</span>
-            </button>
-          )}
-
           {/* 语法速查 */}
           <button
             type="button"
@@ -894,6 +1041,7 @@ export default function MarkdownEditor({
             <HelpCircle className="h-4 w-4" />
           </button>
 
+          {/* 视图模式切换 */}
           <div className="flex items-center rounded-xl bg-neutral-200/60 dark:bg-neutral-800 p-0.5 text-xs font-medium">
             <button
               type="button"
@@ -939,6 +1087,7 @@ export default function MarkdownEditor({
             </button>
           </div>
 
+          {/* 全屏写作切换 */}
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
@@ -974,7 +1123,7 @@ export default function MarkdownEditor({
 
       {/* 图片上传中状态浮动条 */}
       {uploading && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-neutral-900/90 dark:bg-white/90 px-4 py-1.5 text-xs font-medium text-white dark:text-neutral-900 shadow-lg backdrop-blur-xs animate-fade-in-up">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-neutral-900/90 dark:bg-white/90 px-4 py-1.5 text-xs font-medium text-white dark:text-neutral-900 shadow-lg backdrop-blur-xs animate-fade-in-up">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-400 dark:text-emerald-600" />
           <span>{uploadMessage || "正在处理图片上传..."}</span>
         </div>
@@ -982,13 +1131,13 @@ export default function MarkdownEditor({
 
       {/* 图片上传失败提示浮动条 */}
       {uploadError && (
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-rose-600 px-4 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-xs animate-fade-in-up">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-rose-600 px-4 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-xs animate-fade-in-up">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span>{uploadError}</span>
         </div>
       )}
 
-      {/* 主工作区：根据 viewMode 渲染单栏或分栏（移动端分栏自适应为单栏或上下叠放） */}
+      {/* 主工作区 */}
       <div className="relative flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
         {/* 左侧：Markdown 编辑器 */}
         {(viewMode === "split" || viewMode === "edit") && (
@@ -1001,6 +1150,10 @@ export default function MarkdownEditor({
               ref={textareaRef}
               value={value}
               onChange={(e) => {
+                lastSelectionRef.current = {
+                  start: e.target.selectionStart,
+                  end: e.target.selectionEnd,
+                };
                 onChange(e.target.value);
                 updateCursorPos();
               }}
@@ -1085,19 +1238,101 @@ export default function MarkdownEditor({
         </div>
       </div>
 
-      {/* 语法速查弹窗 */}
+      {/* 弹窗 1：插入超链接模态框 */}
+      {showLinkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-sm rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#202025] p-5 shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-blue-600" />
+                <h3 className="font-bold text-sm text-neutral-900 dark:text-white">插入超链接</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLinkModal(false)}
+                className="text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  链接文本
+                </label>
+                <input
+                  type="text"
+                  value={linkModalText}
+                  onChange={(e) => setLinkModalText(e.target.value)}
+                  placeholder="例如：查看官方文档"
+                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConfirmInsertLink();
+                  }}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  链接地址 (URL)
+                </label>
+                <input
+                  type="text"
+                  value={linkModalUrl}
+                  onChange={(e) => setLinkModalUrl(e.target.value)}
+                  placeholder="https://example.com"
+                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 px-3 py-2 text-xs text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 font-mono"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConfirmInsertLink();
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setShowLinkModal(false)}
+                className="rounded-xl border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmInsertLink}
+                className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-xs font-medium transition cursor-pointer shadow-xs"
+              >
+                确认插入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 弹窗 2：从媒体素材库选择配图 */}
+      <MediaPicker
+        open={showMediaPicker}
+        onClose={() => setShowMediaPicker(false)}
+        onSelect={handleSelectFromMediaPicker}
+        category="image"
+        title="从素材库插入文章配图"
+      />
+
+      {/* 弹窗 3：语法速查弹窗 */}
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fade-in">
-          <div className="relative w-full max-w-lg rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#202025] p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-3">
-              <h3 className="font-bold text-neutral-900 dark:text-white flex items-center gap-2 text-base">
-                <HelpCircle className="h-5 w-5 text-emerald-500" />
-                <span>Markdown 语法与排版指南</span>
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs animate-fade-in">
+          <div className="w-full max-w-lg rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-[#202025] p-6 shadow-2xl space-y-4 animate-scale-in">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="font-bold text-sm text-neutral-900 dark:text-white">Markdown 语法速查</h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}
-                className="rounded-lg p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-white"
+                className="rounded-lg p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1122,11 +1357,10 @@ export default function MarkdownEditor({
               </div>
 
               <div>
-                <strong className="text-neutral-900 dark:text-white block mb-1">macOS 代码块（带行号与复制）</strong>
+                <strong className="text-neutral-900 dark:text-white block mb-1">代码块与表格</strong>
                 <code className="block bg-neutral-100 dark:bg-neutral-800 p-2 rounded-lg font-mono">
                   ```ts<br />
-                  const greeting = &quot;Hello World&quot;;<br />
-                  console.log(greeting);<br />
+                  console.log(&quot;Hello Dual!&quot;);<br />
                   ```
                 </code>
               </div>
@@ -1137,18 +1371,17 @@ export default function MarkdownEditor({
                   &gt; [!NOTE] 提示内容<br />
                   &gt; [!TIP] 实用小技巧<br />
                   &gt; [!IMPORTANT] 核心重点<br />
-                  &gt; [!WARNING] 警告注意事项<br />
-                  &gt; [!CAUTION] 危险操作提示
+                  &gt; [!WARNING] 警告注意事项
                 </code>
               </div>
 
               <div>
-                <strong className="text-neutral-900 dark:text-white block mb-1">图片与截图直传</strong>
-                <p>直接按 <code>Ctrl+V</code> 粘贴系统剪贴板中的截图，或将图片文件拖放至编辑区，系统将自动上传并插入 Markdown 链接。</p>
+                <strong className="text-neutral-900 dark:text-white block mb-1">图片与快捷上传</strong>
+                <p>直接按 <code>Ctrl+V</code> 粘贴系统截图，拖放图片到编辑区，或点击工具栏「素材库」直接挑选现有图片。</p>
               </div>
             </div>
 
-            <div className="pt-2 text-right">
+            <div className="pt-2 text-right border-t border-neutral-200 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={() => setShowHelpModal(false)}

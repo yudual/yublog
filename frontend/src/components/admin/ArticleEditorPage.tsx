@@ -666,14 +666,16 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
         handleSave("published", { stay: true });
         return;
       }
-      // Esc 关闭属性抽屉
-      if (e.key === "Escape" && showSettingsDrawer) {
-        setShowSettingsDrawer(false);
+      // Esc 关闭各类弹层或抽屉
+      if (e.key === "Escape") {
+        if (showDraftBox) setShowDraftBox(false);
+        if (showSettingsDrawer) setShowSettingsDrawer(false);
+        if (showLeaveModal) setShowLeaveModal(false);
       }
     };
     window.addEventListener("keydown", onGlobalKeyDown);
     return () => window.removeEventListener("keydown", onGlobalKeyDown);
-  }, [handleSave, showSettingsDrawer]);
+  }, [handleSave, showSettingsDrawer, showDraftBox, showLeaveModal]);
 
   // 页面离开未保存防丢提示
   useEffect(() => {
@@ -992,6 +994,38 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
         </div>
       )}
 
+      {/* 发布成功非阻塞式顶部通知横条 */}
+      {publishedSuccessInfo && (
+        <div className="mx-4 sm:mx-8 xl:mx-10 mb-3 flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-50/95 dark:bg-emerald-950/80 p-3 sm:px-4 text-xs shadow-md animate-fade-in-up">
+          <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-100 min-w-0">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="font-semibold truncate">
+              《{publishedSuccessInfo.title}》已成功发布并同步至前台！
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`/articles/${publishedSuccessInfo.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 font-medium transition shadow-xs"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>前台新窗口浏览</span>
+              <ExternalLink className="h-3 w-3 opacity-80" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setPublishedSuccessInfo(null)}
+              className="rounded-xl border border-emerald-300 dark:border-emerald-800 p-1.5 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition cursor-pointer"
+              title="关闭通知"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 本地未保存备份恢复提示条 */}
       {showRestorePrompt && localBackup && (
         <div className="mx-4 sm:mx-auto max-w-4xl mb-3 flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-50/70 dark:bg-amber-950/40 p-3 text-xs text-amber-900 dark:text-amber-200 animate-fade-in">
@@ -1084,8 +1118,12 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
             value={content}
             onChange={setContent}
             token={token}
+            title={title}
+            onTitleChange={setTitle}
             onFrontmatterChange={handleFrontmatterChange}
             onSave={() => handleSave("draft", { stay: true })}
+            onPublish={() => handleSave("published", { stay: true })}
+            onOpenSettings={() => setShowSettingsDrawer(true)}
             saving={saving !== null}
             height="calc(100vh - 13.5rem)"
             minHeight="720px"
@@ -1399,41 +1437,6 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
         </div>
       )}
 
-      {/* 发布成功提示卡片弹窗 */}
-      {publishedSuccessInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-overlay-in">
-          <div className="relative w-full max-w-md rounded-2xl border border-adm-border bg-adm-card p-6 shadow-2xl animate-fade-in text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 mb-3">
-              <Check className="h-6 w-6" />
-            </div>
-            <h3 className="text-base font-bold text-adm-text">文章发布成功！</h3>
-            <p className="mt-1 text-xs text-adm-text-secondary leading-relaxed">
-              《{publishedSuccessInfo.title}》已成功发布，并已同步更新至前台页面与订阅源。
-            </p>
-
-            <div className="mt-6 flex flex-col sm:flex-row items-center gap-2">
-              <a
-                href={`/articles/${publishedSuccessInfo.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full flex-1 adm-btn adm-btn--secondary"
-              >
-                <Eye className="h-4 w-4" />
-                <span>新标签页查看</span>
-                <ExternalLink className="h-3 w-3 text-adm-text-tertiary" />
-              </a>
-              <button
-                type="button"
-                onClick={() => setPublishedSuccessInfo(null)}
-                className="w-full flex-1 adm-btn adm-btn--primary"
-              >
-                留在当前页继续编辑
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 媒体库选择弹窗 */}
       <MediaPicker
         open={mediaPickerOpen}
@@ -1448,7 +1451,12 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
 
       {/* 文章草稿箱抽屉/弹窗 */}
       {showDraftBox && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-overlay-in">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDraftBox(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 animate-overlay-in"
+        >
           <div className="relative w-full max-w-lg rounded-2xl border border-adm-border bg-adm-card p-5 shadow-2xl max-h-[85vh] flex flex-col animate-modal-in">
             <div className="flex items-center justify-between pb-3 border-b border-adm-border">
               <div className="flex items-center gap-2">
@@ -1459,6 +1467,8 @@ export default function ArticleEditorPage({ articleId }: ArticleEditorPageProps)
                 type="button"
                 onClick={() => setShowDraftBox(false)}
                 className="rounded-lg p-1 text-adm-text-secondary hover:bg-adm-input cursor-pointer"
+                title="关闭草稿箱 (Esc)"
+                aria-label="关闭草稿箱"
               >
                 <X className="h-4 w-4" />
               </button>

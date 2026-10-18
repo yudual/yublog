@@ -7,7 +7,7 @@ import { Router, Request, Response } from "express";
 import path from "path";
 import { Op } from "sequelize";
 import { param, validationResult } from "express-validator";
-import { CatalogItem, Media, MusicTrack, Post, UploadIntent, User, getMediaCategory, sequelize, type MediaKind } from "../models";
+import { Media, MusicTrack, Post, UploadIntent, User, getMediaCategory, sequelize, type MediaKind } from "../models";
 import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
 import { deleteStoredFile, isR2Ready } from "../services/storage-service";
 import { DIRECT_UPLOAD_RULES, getDirectUploadRule } from "../utils/upload-rules";
@@ -377,15 +377,6 @@ router.delete(
         res.status(409).json({ message: "该媒体正在被动态或文章音乐引用，请先移除对应音乐卡片" });
         return;
       }
-    }
-
-    const catalogReference = await CatalogItem.findOne({
-      where: { imageMediaId: { [Op.in]: relatedIds } },
-      attributes: ["id"],
-    });
-    if (catalogReference) {
-      res.status(409).json({ message: "该媒体正在被装备或 Labs 卡片使用，请先替换或移除对应卡片" });
-      return;
     }
 
     const deletionResults = await Promise.allSettled(

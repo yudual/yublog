@@ -18,6 +18,7 @@ import {
   Award,
   ChevronDown,
   Layers,
+  BookOpen,
   ArrowRight,
 } from "lucide-react";
 import type { Post } from "@/lib/types";
@@ -176,10 +177,15 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : `/articles/${post.shortId || post.id}`;
     await sharePost({
-      title: post.title ? `《${post.title}》` : "文章",
+      title: post.title ? `《${post.title}》` : "深度长文",
       url,
-      typeLabel: "文章",
+      typeLabel: "深度长文",
       summary: post.excerpt,
+      cover: coverUrl,
+      author: authorName,
+      date: formatArticleTime(post.createdAt),
+      readingTime: readingStats.minutes,
+      category: post.category,
     });
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
@@ -225,10 +231,13 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
     return calculateReadingStats(post.content || "");
   }, [post.content]);
 
-  const pageUrl =
-    typeof window !== "undefined"
-      ? window.location.href
-      : `/articles/${post.shortId || post.id}`;
+  const [pageUrl, setPageUrl] = useState(() => `/articles/${post.shortId || post.id}`);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setPageUrl(window.location.href);
+    }
+  }, []);
 
 
 
@@ -385,33 +394,33 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
 
       {/* 系列合辑章节导航（若属于某个系列合辑） */}
       {post.collectionContext && (
-        <div className="my-8 rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-gradient-to-br from-blue-50/50 via-indigo-50/30 to-blue-50/20 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-neutral-900/40 p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3 pb-3 border-b border-blue-100/80 dark:border-blue-900/30">
-            <div className="flex items-center gap-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
-              <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <span>所属系列：《{post.collectionContext.collectionTitle}》</span>
+        <div className="my-8 rounded-2xl sm:rounded-3xl border border-neutral-200/80 dark:border-neutral-800/90 bg-neutral-50/70 dark:bg-neutral-850/40 p-4 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_6px_20px_-4px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-neutral-200/60 dark:border-neutral-800/80">
+            <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+              <BookOpen className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>所属专栏：《{post.collectionContext.collectionTitle}》</span>
             </div>
-            <span className="text-xs text-blue-600/80 dark:text-blue-400/80 font-medium">
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
               第 {(post.collectionContext.currentIndex ?? 0) + 1} / {post.collectionContext.total} 篇
             </span>
           </div>
 
           {/* 上一篇 / 下一篇 快捷跳转 */}
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {post.collectionContext.prevPost ? (
               <Link
                 href={`/articles/${post.collectionContext.prevPost.shortId || post.collectionContext.prevPost.id}`}
-                className="group flex flex-col justify-center rounded-xl border border-white/80 dark:border-white/5 bg-white/80 dark:bg-neutral-800/60 p-3 transition-all hover:bg-white dark:hover:bg-neutral-800 hover:shadow-xs"
+                className="group flex flex-col justify-center rounded-xl border border-neutral-200/70 dark:border-neutral-700/60 bg-white/90 dark:bg-neutral-800/70 p-3.5 transition-all hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-xs active:scale-[0.98]"
               >
                 <span className="text-[11px] text-neutral-400 dark:text-neutral-500 inline-flex items-center gap-1">
-                  <ArrowLeft className="h-3 w-3" /> 上一篇
+                  <ArrowLeft className="h-3 w-3 group-hover:-translate-x-0.5 transition-transform" /> 上一篇
                 </span>
-                <span className="mt-0.5 truncate text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <span className="mt-1 truncate text-xs sm:text-sm font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {post.collectionContext.prevPost.title}
                 </span>
               </Link>
             ) : (
-              <div className="flex flex-col justify-center rounded-xl border border-dashed border-neutral-200/60 dark:border-neutral-800/60 p-3 text-[11px] text-neutral-400 dark:text-neutral-600">
+              <div className="flex flex-col justify-center rounded-xl border border-dashed border-neutral-200/70 dark:border-neutral-800/70 p-3.5 text-[11px] text-neutral-400 dark:text-neutral-600">
                 <span>已经是第一篇</span>
               </div>
             )}
@@ -419,17 +428,17 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
             {post.collectionContext.nextPost ? (
               <Link
                 href={`/articles/${post.collectionContext.nextPost.shortId || post.collectionContext.nextPost.id}`}
-                className="group flex flex-col justify-center sm:text-right rounded-xl border border-white/80 dark:border-white/5 bg-white/80 dark:bg-neutral-800/60 p-3 transition-all hover:bg-white dark:hover:bg-neutral-800 hover:shadow-xs"
+                className="group flex flex-col justify-center sm:text-right rounded-xl border border-neutral-200/70 dark:border-neutral-700/60 bg-white/90 dark:bg-neutral-800/70 p-3.5 transition-all hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-xs active:scale-[0.98]"
               >
                 <span className="text-[11px] text-neutral-400 dark:text-neutral-500 inline-flex items-center sm:justify-end gap-1">
-                  下一篇 <ArrowRight className="h-3 w-3" />
+                  下一篇 <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                 </span>
-                <span className="mt-0.5 truncate text-xs sm:text-sm font-medium text-neutral-800 dark:text-neutral-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <span className="mt-1 truncate text-xs sm:text-sm font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {post.collectionContext.nextPost.title}
                 </span>
               </Link>
             ) : (
-              <div className="flex flex-col justify-center sm:text-right rounded-xl border border-dashed border-neutral-200/60 dark:border-neutral-800/60 p-3 text-[11px] text-neutral-400 dark:text-neutral-600">
+              <div className="flex flex-col justify-center sm:text-right rounded-xl border border-dashed border-neutral-200/70 dark:border-neutral-800/70 p-3.5 text-[11px] text-neutral-400 dark:text-neutral-600">
                 <span>已经是最后一篇</span>
               </div>
             )}
@@ -437,28 +446,28 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
 
           {/* 系列所有章节快速查看 */}
           {post.collectionContext.posts && post.collectionContext.posts.length > 0 && (
-            <details className="mt-3 group/toc">
-              <summary className="cursor-pointer text-xs font-medium text-blue-600 dark:text-blue-400 flex items-center justify-between py-1">
+            <details className="mt-3.5 group/toc">
+              <summary className="cursor-pointer text-xs font-medium text-neutral-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400 flex items-center justify-between py-1 transition-colors">
                 <span>查看该系列全部 {post.collectionContext.total} 篇章节</span>
                 <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 group-open/toc:rotate-180" />
               </summary>
-              <div className="mt-2 space-y-1 pt-2 border-t border-blue-100/60 dark:border-blue-900/30">
+              <div className="mt-2 space-y-1 pt-2 border-t border-neutral-200/60 dark:border-neutral-800/60">
                 {post.collectionContext.posts.map((sibling) => {
                   const isCurr = sibling.isCurrent;
                   return (
                     <Link
                       key={sibling.id}
                       href={`/articles/${sibling.shortId || sibling.id}`}
-                      className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                      className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs transition-colors ${
                         isCurr
-                          ? "bg-blue-600 text-white font-semibold"
-                          : "text-neutral-700 hover:bg-white/80 dark:text-neutral-300 dark:hover:bg-neutral-800/80"
+                          ? "bg-blue-600 text-white font-semibold shadow-2xs"
+                          : "text-neutral-700 hover:bg-white dark:text-neutral-300 dark:hover:bg-neutral-800/80"
                       }`}
                     >
                       <span className="truncate">
                         {sibling.order}. {sibling.title}
                       </span>
-                      {isCurr && <span className="text-[10px] uppercase opacity-90">当前阅读</span>}
+                      {isCurr && <span className="text-[10px] font-medium opacity-90">正在阅读</span>}
                     </Link>
                   );
                 })}
@@ -468,8 +477,8 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
         </div>
       )}
 
-      {/* 正文后普通操作区（非微信公众号式的 fixed 底部栏） */}
-      <section className="mt-12 sm:mt-16 pt-8 border-t border-black/[0.06] dark:border-white/[0.08]">
+      {/* 正文后操作区：触感级点赞、分享与讨论互动 */}
+      <section className="mt-14 sm:mt-16 pt-8 border-t border-neutral-200/70 dark:border-neutral-800/80">
         {/* 核心互动按钮组：点赞、分享、参与讨论 */}
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
           {/* 点赞大按钮 */}
@@ -478,19 +487,19 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
               type="button"
               onClick={handleLike}
               disabled={liking}
-              className={`group flex items-center gap-2.5 px-6 py-3 rounded-full border text-sm font-medium transition-all duration-200 shadow-xs cursor-pointer active:scale-95 ${
+              className={`group/like flex items-center gap-2.5 px-6 py-2.5 rounded-2xl border text-sm font-semibold transition-all duration-200 shadow-2xs hover:shadow-xs cursor-pointer active:scale-[0.97] ${
                 liked
-                  ? "bg-rose-50 border-rose-200 text-rose-600 dark:bg-rose-950/40 dark:border-rose-900/50 dark:text-rose-400"
-                  : "border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-rose-300 dark:hover:border-rose-800 hover:text-rose-600 dark:hover:text-rose-400"
+                  ? "bg-rose-50/90 border-rose-300/80 text-rose-600 dark:bg-rose-950/40 dark:border-rose-900/60 dark:text-rose-400"
+                  : "border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-rose-300 dark:hover:border-rose-800/80 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50/30"
               }`}
             >
               <Heart
-                className={`h-4 w-4 transition-transform group-hover:scale-110 ${
+                className={`h-4 w-4 transition-transform group-hover/like:scale-110 ${
                   liked ? "fill-current text-rose-500" : ""
                 }`}
               />
               <span>{liked ? "已喜欢" : "赞一个"}</span>
-              <span className="rounded-full bg-black/5 dark:bg-white/10 px-2 py-0.5 text-xs">
+              <span className="rounded-lg bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono font-medium text-neutral-600 dark:text-neutral-400">
                 {likes.length}
               </span>
             </button>
@@ -500,7 +509,7 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
           <button
             type="button"
             onClick={handleShare}
-            className="group flex items-center gap-2 px-5 py-3 rounded-full border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-black/20 dark:hover:border-white/20 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-sm font-medium transition-all duration-200 shadow-xs cursor-pointer active:scale-95"
+            className="group/share flex items-center gap-2 px-5 py-2.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-sm font-semibold transition-all duration-200 shadow-2xs hover:shadow-xs cursor-pointer active:scale-[0.97]"
           >
             {copied ? (
               <>
@@ -509,7 +518,7 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
               </>
             ) : (
               <>
-                <Share2 className="h-4 w-4 transition-transform group-hover:rotate-12" />
+                <Share2 className="h-4 w-4 text-neutral-400 group-hover/share:text-neutral-700 dark:group-hover/share:text-neutral-200 group-hover/share:rotate-12 transition-all" />
                 <span>分享文章</span>
               </>
             )}
@@ -521,11 +530,11 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
               type="button"
               data-no-collapse
               onClick={handleCommentClick}
-              className="flex items-center gap-2 px-5 py-3 rounded-full border border-black/10 dark:border-white/10 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-black/20 dark:hover:border-white/20 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-sm font-medium transition-all duration-200 shadow-xs cursor-pointer active:scale-95"
+              className="group/comment flex items-center gap-2 px-5 py-2.5 rounded-2xl border border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-sm font-semibold transition-all duration-200 shadow-2xs hover:shadow-xs cursor-pointer active:scale-[0.97]"
             >
-              <MessageCircle className="h-4 w-4" />
+              <MessageCircle className="h-4 w-4 text-neutral-400 group-hover/comment:text-neutral-700 dark:group-hover/comment:text-neutral-200 group-hover/comment:scale-105 transition-all" />
               <span>参与讨论</span>
-              <span className="rounded-full bg-black/5 dark:bg-white/10 px-2 py-0.5 text-xs">
+              <span className="rounded-lg bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-xs font-mono font-medium text-neutral-600 dark:text-neutral-400">
                 {comments.length}
               </span>
             </button>
@@ -534,17 +543,20 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
 
         {/* 赞过本文的读者墙（若有人赞过） */}
         {likes.length > 0 && (
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-            <span className="mr-1">❤️ 已有 {likes.length} 人点赞：</span>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="flex items-center gap-1.5 mr-1 font-medium text-neutral-600 dark:text-neutral-400">
+              <Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-500/20" />
+              <span>共 {likes.length} 位读者认同：</span>
+            </div>
             {likes.slice(0, 10).map((l, idx) => (
               <span
                 key={idx}
-                className="rounded bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 text-[11px] text-neutral-600 dark:text-neutral-300"
+                className="rounded-md bg-neutral-100/90 dark:bg-neutral-800/90 px-2 py-0.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-300 border border-neutral-200/50 dark:border-neutral-700/50"
               >
                 {l.name}
               </span>
             ))}
-            {likes.length > 10 && <span>等</span>}
+            {likes.length > 10 && <span className="text-neutral-400">等</span>}
           </div>
         )}
 
@@ -560,7 +572,7 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
           </p>
           <p className="leading-relaxed break-all">
             <strong className="text-neutral-700 dark:text-neutral-300">本文链接：</strong>
-            <span className="text-neutral-500 dark:text-neutral-400">{pageUrl}</span>
+            <span className="text-neutral-500 dark:text-neutral-400" suppressHydrationWarning>{pageUrl}</span>
           </p>
           <p className="leading-relaxed">
             <strong className="text-neutral-700 dark:text-neutral-300">版权许可：</strong>

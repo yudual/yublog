@@ -257,8 +257,10 @@ function MomentCard({
     await sharePost({
       title,
       url: momentPath,
-      typeLabel: "动态",
+      typeLabel: "动态随笔",
       summary: plainText,
+      cover: post.images && post.images.length > 0 ? (typeof post.images[0] === "string" ? post.images[0] : post.images[0]?.src) : undefined,
+      author: post.author?.nickname || "Dual",
     });
   };
 
@@ -343,19 +345,24 @@ function MomentCard({
       id={`post-${post.id}`}
       className={
         isCardVariant
-          ? "relative flex flex-col justify-between rounded-3xl bg-wechat-white p-5 sm:p-6 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_-12px_rgba(0,0,0,0.4)] border border-neutral-200/60 dark:border-neutral-800/80 animate-fade-in-up scroll-mt-16 transition-all duration-300 hover:shadow-[0_12px_36px_-12px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_12px_36px_-12px_rgba(0,0,0,0.6)] hover:-translate-y-0.5"
+          ? "group relative flex flex-col justify-between rounded-2xl bg-white/90 dark:bg-neutral-900/80 backdrop-blur-sm p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_-6px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] border border-neutral-200/70 dark:border-neutral-800/80 animate-fade-in-up scroll-mt-16 transition-all duration-300 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_8px_30px_-6px_rgba(0,0,0,0.4)] hover:-translate-y-0.5"
           : "flex gap-3 px-4 py-4 sm:px-5 md:px-6 animate-fade-in-up scroll-mt-16"
       }
       style={{ animationDelay: `${index * 60}ms`, opacity: 0 }}
     >
+      {/* 独立卡片模式顶部微高光 */}
+      {isCardVariant && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neutral-300/40 dark:via-neutral-700/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+      )}
+
       {/* 独立卡片模式顶栏 */}
       {isCardVariant && (
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-black/[0.04] dark:border-white/[0.05] mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <Link
-              href="/archives"
+              href="/"
               className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-wechat-bubble ring-1 ring-black/5 dark:ring-white/10"
-              aria-label={`查看${displayName}的归档`}
+              aria-label={`查看${displayName}的主页`}
             >
               <Image
                 src={authorAvatar}
@@ -405,9 +412,9 @@ function MomentCard({
       {/* Avatar (时间线模式) */}
       {!isCardVariant && (
         <Link
-          href="/archives"
+          href="/"
           className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-[5px] bg-wechat-bubble md:h-11 md:w-11"
-          aria-label={`查看${displayName}的归档`}
+          aria-label={`查看${displayName}的主页`}
         >
           <Image
             src={authorAvatar}
@@ -504,14 +511,14 @@ function MomentCard({
           <ImageGrid images={normalizedImages} />
         )}
 
-        {/* Link card — 微信朋友圈链接卡片样式 */}
+        {/* Link card */}
         {post.linkCard && safeLinkUrl && (
           <a
             href={safeLinkUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={`mt-2 flex w-full items-stretch overflow-hidden rounded-[8px] bg-[#f2f2f2] transition-colors hover:bg-[#eaeaea] active:bg-[#e0e0e0] dark:bg-[#2a2a30] dark:hover:bg-[#33333a] dark:active:bg-[#3a3a42] ${
-              isCardVariant ? "max-w-full" : "max-w-[240px] md:max-w-[280px]"
+            className={`mt-2.5 flex w-full items-stretch overflow-hidden rounded-xl border border-neutral-200/70 bg-neutral-50/80 hover:bg-neutral-100/80 dark:border-neutral-750 dark:bg-neutral-850/80 dark:hover:bg-neutral-800/90 shadow-2xs hover:shadow-xs transition-all duration-200 active:scale-[0.99] ${
+              isCardVariant ? "max-w-full" : "max-w-[260px] md:max-w-[300px]"
             }`}
           >
             {/* 左侧方形封面 */}
@@ -527,13 +534,13 @@ function MomentCard({
                 />
               )}
             </div>
-            {/* 右侧内容区 — 半透明背景，与音乐卡片一致 */}
-            <div className="flex min-w-0 flex-1 flex-col justify-center bg-white/35 px-3 dark:bg-white/[0.04]">
-              <p className="line-clamp-1 text-[14px] font-medium leading-[20px] text-black/[0.87] dark:text-white/90 md:text-[15px] md:leading-[21px]">
+            {/* 右侧内容区 */}
+            <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2">
+              <p className="line-clamp-1 text-[13px] sm:text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">
                 {post.linkCard.title || safeLinkUrl}
               </p>
               {post.linkCard.description && (
-                <p className="line-clamp-2 mt-0.5 text-[12px] leading-[15px] text-black/50 dark:text-white/50 md:text-[13px] md:leading-[16px]">
+                <p className="line-clamp-2 mt-0.5 text-[11px] sm:text-[12px] text-neutral-500 dark:text-neutral-400">
                   {post.linkCard.description}
                 </p>
               )}
@@ -541,16 +548,15 @@ function MomentCard({
           </a>
         )}
 
-        {/* Music card — 微信朋友圈官方音乐卡片样式（占满整栏）
-            点击后由顶栏全局 audio 接管播放，歌词在顶栏显示 */}
+        {/* Music card */}
         {post.music && (
           <div
             onClick={handleMusicClick}
-            className={`mt-2 flex w-full cursor-pointer items-stretch overflow-hidden rounded-[8px] bg-[#f2f2f2] transition-opacity active:opacity-80 dark:bg-[#2a2a30] ${
-              isCardVariant ? "max-w-full" : "max-w-[240px] md:max-w-[280px]"
+            className={`mt-2.5 flex w-full cursor-pointer items-stretch overflow-hidden rounded-xl border border-neutral-200/70 bg-neutral-50/80 hover:bg-neutral-100/80 dark:border-neutral-750 dark:bg-neutral-850/80 dark:hover:bg-neutral-800/90 shadow-2xs hover:shadow-xs transition-all duration-200 active:scale-[0.99] ${
+              isCardVariant ? "max-w-full" : "max-w-[260px] md:max-w-[300px]"
             }`}
           >
-            {/* 左侧方形封面 — 紧贴边框，无间距，高度增加 */}
+            {/* 左侧方形封面 */}
             <div className="relative h-[72px] w-[72px] shrink-0 md:h-[80px] md:w-[80px] overflow-hidden bg-black/5 dark:bg-white/5">
               {toSafeImageUrl(post.music.cover) ? (
                 <LazyImage
@@ -569,26 +575,26 @@ function MomentCard({
               )}
             </div>
 
-            {/* 右侧内容区 — 半透明背景 */}
-            <div className="flex min-w-0 flex-1 items-center gap-2 bg-white/35 px-3 dark:bg-white/[0.04]">
+            {/* 右侧内容区 */}
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[14px] font-medium leading-[20px] text-black/[0.87] dark:text-white/90 md:text-[15px] md:leading-[21px]">
+                <p className="truncate text-[13px] sm:text-[14px] font-semibold text-neutral-900 dark:text-neutral-100">
                   {post.music.name}
                 </p>
-                <p className="truncate text-[12px] leading-[16px] text-black/50 dark:text-white/50 md:text-[13px] md:leading-[17px]">
+                <p className="truncate text-[11px] sm:text-[12px] text-neutral-500 dark:text-neutral-400">
                   {post.music.artist}
                 </p>
               </div>
-              {/* 播放/暂停图标：加载中显示闪烁圆点，播放中显示暂停，否则显示播放 */}
+              {/* 播放/暂停图标 */}
               {isThisLoading ? (
-                <span className="h-3 w-3 shrink-0 rounded-full bg-black/55 animate-pulse dark:bg-white/55" />
+                <span className="h-3 w-3 shrink-0 rounded-full bg-neutral-500 animate-pulse dark:bg-neutral-400" />
               ) : isThisPlaying ? (
-                <Pause className="h-3.5 w-3.5 shrink-0 text-black/55 dark:text-white/55" fill="currentColor" />
+                <Pause className="h-4 w-4 shrink-0 text-neutral-700 dark:text-neutral-200" fill="currentColor" />
               ) : (
                 <svg
                   viewBox="0 0 24 24"
                   fill="currentColor"
-                  className="h-3.5 w-3.5 shrink-0 translate-x-[1px] text-black/55 dark:text-white/55"
+                  className="h-4 w-4 shrink-0 translate-x-[1px] text-neutral-700 dark:text-neutral-200"
                 >
                   <path d="M8 5.14v13.72c0 .93 1.03 1.5 1.83 1.01l11.3-6.86a1.25 1.25 0 0 0 0-2.14L9.83 4.13A1.25 1.25 0 0 0 8 5.14Z" />
                 </svg>

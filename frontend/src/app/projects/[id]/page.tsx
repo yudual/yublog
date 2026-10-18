@@ -98,7 +98,7 @@ export default async function ProjectDetailPage({
   // 跨频道路由守卫 (Cross-Channel Route Guard)
   const isProject = post.category === "项目" || post.type === "project";
   if (!isProject) {
-    if (post.type === "article") {
+    if (post.type === "article" || post.type === "collection") {
       redirect(`/articles/${post.shortId || post.id}`);
     }
     redirect(`/moments/${post.shortId || post.id}`);

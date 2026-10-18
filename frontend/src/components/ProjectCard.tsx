@@ -218,11 +218,14 @@ export default function ProjectCard({ post, index, featured = false, variant = "
   const handleShare = async () => {
     const projectPath = `/projects/${post.shortId || post.id}`;
     const shareTitle = `项目: ${title}`;
+    const firstImg = post.cover || post.linkCard?.image || (post.images && post.images.length > 0 ? (typeof post.images[0] === "string" ? post.images[0] : post.images[0]?.src) : undefined);
     await sharePost({
       title: shareTitle,
       url: projectPath,
-      typeLabel: "项目",
+      typeLabel: "项目作品",
       summary: description,
+      cover: firstImg,
+      author: post.author?.nickname || "Dual",
     });
   };
 
@@ -270,9 +273,9 @@ export default function ProjectCard({ post, index, featured = false, variant = "
       >
         {/* Avatar */}
         <Link
-          href="/archives"
+          href="/"
           className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-[5px] bg-wechat-bubble md:h-11 md:w-11"
-          aria-label={`查看${authorName}的归档`}
+          aria-label={`查看${authorName}的主页`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -306,7 +309,7 @@ export default function ProjectCard({ post, index, featured = false, variant = "
           )}
 
           {/* 微信朋友圈精致项目卡片 */}
-          <div className="group/proj mt-2.5 overflow-hidden rounded-xl border border-black/[0.06] bg-[#f7f7f7] dark:border-white/[0.08] dark:bg-[#25252b] transition-all duration-200 hover:bg-[#eaeaea] dark:hover:bg-[#2e2e36] hover:border-black/10 dark:hover:border-white/15 max-w-[460px]">
+          <div className="group/proj mt-3 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/90 dark:border-neutral-700/80 dark:bg-neutral-850/90 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_4px_16px_-4px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all duration-300 hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.08)] max-w-[480px]">
             <div className="flex items-stretch">
               {/* 左侧方形项目封面/图标 */}
               <Link
@@ -353,18 +356,18 @@ export default function ProjectCard({ post, index, featured = false, variant = "
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1">
                     {tags.slice(0, 2).map((tag) => (
-                      <span key={tag} className="rounded bg-black/[0.04] dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400">
-                        {tag}
+                      <span key={tag} className="rounded-md bg-neutral-100/80 dark:bg-neutral-700/60 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 dark:text-neutral-300 border border-neutral-200/50 dark:border-neutral-700/40">
+                        #{tag}
                       </span>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {projectHref ? (
                       <a
                         href={projectHref}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 hover:bg-emerald-100/80 dark:hover:bg-emerald-900/60 active:scale-95 transition-all"
                       >
                         <span>体验</span>
                         <ExternalLink className="h-3 w-3" />
@@ -372,7 +375,7 @@ export default function ProjectCard({ post, index, featured = false, variant = "
                     ) : null}
                     <Link
                       href={detailHref}
-                      className="inline-flex items-center gap-0.5 text-xs font-medium text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                      className="inline-flex items-center gap-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white bg-neutral-100/80 dark:bg-neutral-800/80 border border-neutral-200/60 dark:border-neutral-700/60 hover:bg-neutral-200/70 dark:hover:bg-neutral-700/80 active:scale-95 transition-all"
                     >
                       <span>详情</span>
                       <ArrowUpRight className="h-3 w-3" />
@@ -462,18 +465,21 @@ export default function ProjectCard({ post, index, featured = false, variant = "
         />
       )}
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.18),transparent_48%)] dark:bg-[linear-gradient(135deg,rgba(255,255,255,0.08),transparent_48%)]" />
-      <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-black/55 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-white backdrop-blur-sm">
-        <FolderGit2 className="h-3.5 w-3.5" />
-        Project
+      <div className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full bg-neutral-900/75 dark:bg-neutral-850/85 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white backdrop-blur-md border border-white/10 shadow-sm">
+        <FolderGit2 className="h-3.5 w-3.5 text-emerald-400" />
+        <span>Project</span>
       </div>
     </div>
   );
 
   return (
     <article
-      className={`group overflow-hidden rounded-2xl border border-neutral-200/80 bg-wechat-white shadow-[0_10px_30px_-18px_rgba(0,0,0,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_42px_-18px_rgba(0,0,0,0.35)] dark:border-neutral-800 dark:bg-neutral-900/70 ${featured ? "xl:grid xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]" : ""}`}
+      className={`group relative overflow-hidden rounded-2xl border border-neutral-200/80 bg-white/90 dark:border-neutral-800 dark:bg-neutral-900/80 backdrop-blur-sm shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_-4px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),0_8px_24px_-4px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_12px_32px_-8px_rgba(0,0,0,0.4)] ${featured ? "xl:grid xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]" : ""}`}
       style={typeof index === "number" ? { animationDelay: `${index * 60}ms` } : undefined}
     >
+      {/* 顶部微高光线 */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neutral-300/40 dark:via-neutral-700/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+
       <Link href={detailHref} className="block" aria-label={`查看项目 ${title}`}>
         {cover}
       </Link>
@@ -493,10 +499,13 @@ export default function ProjectCard({ post, index, featured = false, variant = "
           {description || "一个值得被认真展示的个人项目。"}
         </p>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 flex flex-wrap gap-1.5">
           {tags.map((tag) => (
-            <span key={tag} className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800/80 dark:text-neutral-300">
-              {tag}
+            <span
+              key={tag}
+              className="rounded-lg border border-neutral-200/70 bg-neutral-50/80 dark:border-neutral-750 dark:bg-neutral-800/60 px-2.5 py-0.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-300"
+            >
+              #{tag}
             </span>
           ))}
         </div>
@@ -508,26 +517,26 @@ export default function ProjectCard({ post, index, featured = false, variant = "
                 href={projectHref || detailHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-emerald-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-emerald-200"
+                className="group/btn inline-flex min-h-9 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white shadow-2xs transition-all duration-200 hover:bg-emerald-600 dark:bg-white dark:text-neutral-950 dark:hover:bg-emerald-300 hover:shadow-xs active:scale-[0.97]"
               >
-                <ExternalLink className="h-4 w-4" />
-                查看项目
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span>查看项目</span>
               </a>
               <Link
                 href={detailHref}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-neutral-200/80 bg-neutral-50/80 px-3 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800/80 dark:text-neutral-300 dark:hover:bg-neutral-700"
+                className="group/detail inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-neutral-200/80 bg-white/80 px-3.5 text-xs font-semibold text-neutral-700 shadow-2xs transition-all duration-200 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800/80 dark:text-neutral-200 dark:hover:border-neutral-600 dark:hover:bg-neutral-800 hover:shadow-xs active:scale-[0.97]"
               >
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                详情
+                <span>详情</span>
+                <ArrowUpRight className="h-3.5 w-3.5 group-hover/detail:translate-x-0.5 group-hover/detail:-translate-y-0.5 transition-transform" />
               </Link>
             </>
           ) : (
             <Link
               href={detailHref}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white transition hover:bg-emerald-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-emerald-200"
+              className="group/btn inline-flex min-h-9 items-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white shadow-2xs transition-all duration-200 hover:bg-emerald-600 dark:bg-white dark:text-neutral-950 dark:hover:bg-emerald-300 hover:shadow-xs active:scale-[0.97]"
             >
-              <ArrowUpRight className="h-4 w-4" />
-              查看详情
+              <span>查看详情</span>
+              <ArrowUpRight className="h-4 w-4 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
             </Link>
           )}
           {post.linkCard?.url && (

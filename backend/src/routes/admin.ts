@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import bcrypt from "bcryptjs";
 import { body, param, validationResult } from "express-validator";
-import { Op } from "sequelize";
+import { Op, fn, col } from "sequelize";
 import sequelize from "../config/database";
 import { User, Post, Comment, Like, CommentLike, SiteSetting } from "../models";
 import { authenticate, requireAdmin, AuthRequest } from "../middleware/auth";
@@ -206,14 +206,53 @@ router.get("/posts", authenticate, requireAdmin, async (req: AuthRequest, res: R
     }
   }
 
+  // 排序支持：views(阅读最多), updated(最新修改), created_asc(最早发布), 默认 pinned 优先 + createdAt 倒序
+  const sortByParam = req.query.sortBy as string;
+  let order: any[] = [["pinned", "DESC"], ["createdAt", "DESC"]];
+  if (sortByParam === "views") {
+    order = [["pinned", "DESC"], ["viewCount", "DESC"], ["createdAt", "DESC"]];
+  } else if (sortByParam === "updated") {
+    order = [["pinned", "DESC"], ["updatedAt", "DESC"]];
+  } else if (sortByParam === "created_asc") {
+    order = [["pinned", "DESC"], ["createdAt", "ASC"]];
+  }
+
   const { count, rows: posts } = await Post.findAndCountAll({
     where,
     include: [{ model: User, as: "author", attributes: ["id", "nickname", "avatar"] }],
-    order: [["pinned", "DESC"], ["createdAt", "DESC"]],
+    order,
     limit,
     offset,
     distinct: true,
   });
+
+  const postIds = posts.map((p: any) => p.id);
+
+  // 批量查出当前页文章的评论数与点赞数
+  const commentCountsMap = new Map<string, number>();
+  const likeCountsMap = new Map<string, number>();
+  if (postIds.length > 0) {
+    const [commentCounts, likeCounts] = await Promise.all([
+      Comment.findAll({
+        where: { postId: { [Op.in]: postIds } },
+        attributes: ["postId", [fn("COUNT", col("id")), "count"]],
+        group: ["postId"],
+        raw: true,
+      }) as Promise<any[]>,
+      Like.findAll({
+        where: { postId: { [Op.in]: postIds } },
+        attributes: ["postId", [fn("COUNT", col("id")), "count"]],
+        group: ["postId"],
+        raw: true,
+      }) as Promise<any[]>,
+    ]);
+    for (const row of commentCounts) {
+      commentCountsMap.set(row.postId, Number(row.count) || 0);
+    }
+    for (const row of likeCounts) {
+      likeCountsMap.set(row.postId, Number(row.count) || 0);
+    }
+  }
 
   // 查出所有关联的合辑标题
   const colTitlesMap = new Map<string, string>();
@@ -246,16 +285,243 @@ router.get("/posts", authenticate, requireAdmin, async (req: AuthRequest, res: R
       commentsDisabled: !!p.commentsDisabled,
       pinned: !!p.pinned,
       status: p.status || "published",
+      viewCount: Number(p.viewCount) || 0,
+      commentCount: commentCountsMap.get(p.id) || 0,
+      likeCount: likeCountsMap.get(p.id) || 0,
       collectionId: p.collectionId || null,
       collectionTitle: p.collectionId ? (colTitlesMap.get(p.collectionId) || "已加入合辑") : null,
       hideInHome: !!p.hideInHome,
       collectionPostIds: tryParseJson(p.collectionPostIds, null),
       createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
       author: p.author?.nickname || "",
     })),
     pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
   });
 });
+
+// GET /api/admin/posts/categories - 获取所有已有文章分类列表
+router.get("/posts/categories", authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {
+  try {
+    const rows = (await Post.findAll({
+      where: {
+        type: "article",
+        category: {
+          [Op.and]: [
+            { [Op.ne]: "" },
+            { [Op.ne]: "项目" },
+            { [Op.ne]: null as any },
+          ],
+        },
+      },
+      attributes: [[fn("DISTINCT", col("category")), "category"]],
+      raw: true,
+    })) as any[];
+    const categories = rows
+      .map((r: any) => (typeof r.category === "string" ? r.category.trim() : ""))
+      .filter((c: string) => c && c !== "项目");
+    res.json({ categories: Array.from(new Set(categories)) });
+  } catch (err: any) {
+    res.status(500).json({ message: err.message || "获取分类失败" });
+  }
+});
+
+// POST /api/admin/posts/batch-delete - 批量彻底删除文章
+router.post(
+  "/posts/batch-delete",
+  authenticate,
+  requireAdmin,
+  [body("ids").isArray({ min: 1, max: 100 }).withMessage("请选择 1~100 篇要删除的内容")],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ message: errors.array()[0]?.msg || "参数校验失败" });
+      return;
+    }
+    const rawIds: string[] = req.body.ids;
+    const ids = Array.from(new Set(rawIds.map((id) => String(id).trim()).filter(Boolean)));
+    if (ids.length === 0) {
+      res.status(400).json({ message: "文章 ID 列表不能为空" });
+      return;
+    }
+
+    try {
+      const deletedCount = await sequelize.transaction(async (transaction) => {
+        const posts = await Post.findAll({
+          where: { id: { [Op.in]: ids } },
+          attributes: ["id", "type", "collectionId", "collectionPostIds"],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+
+        if (posts.length === 0) return 0;
+        const targetIds = posts.map((p) => p.id);
+
+        // 1. 查找并清理关联评论及评论点赞
+        const comments = await Comment.findAll({
+          where: { postId: { [Op.in]: targetIds } },
+          attributes: ["id"],
+          transaction,
+        });
+        const commentIds = comments.map((c) => c.id);
+        if (commentIds.length > 0) {
+          await CommentLike.destroy({ where: { commentId: { [Op.in]: commentIds } }, transaction });
+          await Comment.destroy({ where: { id: { [Op.in]: commentIds } }, transaction });
+        }
+
+        // 2. 清理文章点赞
+        await Like.destroy({ where: { postId: { [Op.in]: targetIds } }, transaction });
+
+        // 3. 处理合辑关联
+        for (const post of posts) {
+          if (post.type === "collection") {
+            // 合辑被删：解绑其子文章
+            await Post.update(
+              { collectionId: null, hideInHome: false },
+              { where: { collectionId: post.id }, transaction }
+            );
+          } else if (post.collectionId) {
+            // 子文章被删：从父合辑列表中剔除
+            const parentCol = await Post.findOne({
+              where: { id: post.collectionId, type: "collection" },
+              transaction,
+              lock: transaction.LOCK.UPDATE,
+            });
+            if (parentCol) {
+              const curIds = tryParseJson<string[]>(parentCol.collectionPostIds, []);
+              const newIds = curIds.filter((cid) => cid !== post.id);
+              await parentCol.update({ collectionPostIds: newIds }, { transaction });
+            }
+          }
+        }
+
+        // 4. 彻底删除文章记录
+        return await Post.destroy({
+          where: { id: { [Op.in]: targetIds } },
+          transaction,
+        });
+      });
+
+      triggerRevalidate(["/", "/articles"]).catch(() => {});
+      res.json({ message: `成功删除 ${deletedCount} 篇内容`, count: deletedCount });
+    } catch (err: any) {
+      console.error("批量删除失败:", err);
+      res.status(500).json({ message: err.message || "批量删除失败" });
+    }
+  }
+);
+
+// PATCH /api/admin/posts/batch-status - 批量切换发布/草稿状态
+router.patch(
+  "/posts/batch-status",
+  authenticate,
+  requireAdmin,
+  [
+    body("ids").isArray({ min: 1, max: 100 }).withMessage("请选择 1~100 篇内容"),
+    body("status").isIn(["published", "draft"]).withMessage("状态必须为 published 或 draft"),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ message: errors.array()[0]?.msg || "参数校验失败" });
+      return;
+    }
+    const { ids: rawIds, status } = req.body;
+    const ids = Array.from(new Set((rawIds as any[]).map((id) => String(id).trim()).filter(Boolean)));
+    if (ids.length === 0) {
+      res.status(400).json({ message: "文章 ID 列表不能为空" });
+      return;
+    }
+
+    try {
+      const updatedCount = await sequelize.transaction(async (transaction) => {
+        if (status === "draft") {
+          // 若下架转为草稿，若文章已加入合辑，则移出合辑
+          const posts = await Post.findAll({
+            where: { id: { [Op.in]: ids }, collectionId: { [Op.ne]: null } },
+            attributes: ["id", "collectionId"],
+            transaction,
+          });
+          for (const p of posts) {
+            if (p.collectionId) {
+              const parentCol = await Post.findOne({
+                where: { id: p.collectionId, type: "collection" },
+                transaction,
+              });
+              if (parentCol) {
+                const curIds = tryParseJson<string[]>(parentCol.collectionPostIds, []);
+                await parentCol.update(
+                  { collectionPostIds: curIds.filter((cid) => cid !== p.id) },
+                  { transaction }
+                );
+              }
+            }
+          }
+          const [cnt] = await Post.update(
+            { status: "draft", collectionId: null, hideInHome: false },
+            { where: { id: { [Op.in]: ids } }, transaction }
+          );
+          return cnt;
+        }
+
+        const [cnt] = await Post.update(
+          { status: "published" },
+          { where: { id: { [Op.in]: ids } }, transaction }
+        );
+        return cnt;
+      });
+
+      triggerRevalidate(["/", "/articles"]).catch(() => {});
+      res.json({
+        message: `成功将 ${updatedCount} 篇内容状态切换为「${status === "published" ? "已发布" : "草稿"}」`,
+        count: updatedCount,
+      });
+    } catch (err: any) {
+      console.error("批量切换状态失败:", err);
+      res.status(500).json({ message: err.message || "批量切换状态失败" });
+    }
+  }
+);
+
+// PATCH /api/admin/posts/batch-category - 批量修改分类
+router.patch(
+  "/posts/batch-category",
+  authenticate,
+  requireAdmin,
+  [
+    body("ids").isArray({ min: 1, max: 100 }).withMessage("请选择 1~100 篇内容"),
+    body("category").trim().notEmpty().withMessage("分类不能为空").isLength({ max: 50 }),
+  ],
+  async (req: AuthRequest, res: Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ message: errors.array()[0]?.msg || "参数校验失败" });
+      return;
+    }
+    const { ids: rawIds, category } = req.body;
+    const ids = Array.from(new Set((rawIds as any[]).map((id) => String(id).trim()).filter(Boolean)));
+    if (ids.length === 0) {
+      res.status(400).json({ message: "文章 ID 列表不能为空" });
+      return;
+    }
+
+    try {
+      const [updatedCount] = await Post.update(
+        { category: category.trim() },
+        { where: { id: { [Op.in]: ids } } }
+      );
+
+      triggerRevalidate(["/", "/articles"]).catch(() => {});
+      res.json({
+        message: `成功将 ${updatedCount} 篇文章修改为分类「${category.trim()}」`,
+        count: updatedCount,
+      });
+    } catch (err: any) {
+      console.error("批量修改分类失败:", err);
+      res.status(500).json({ message: err.message || "批量修改分类失败" });
+    }
+  }
+);
 
 // GET /api/admin/collections - 获取所有合辑列表
 router.get("/collections", authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {

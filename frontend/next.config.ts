@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   },
   // Pi's browser preview reaches the dev server through these host interfaces.
   // Next blocks cross-origin dev assets/HMR unless the forwarded origins are allowed.
-  allowedDevOrigins: ["161.33.5.19", "10.0.0.49"],
+  allowedDevOrigins: ["127.0.0.1", "localhost", "161.33.5.19", "10.0.0.49"],
   output: "standalone",
   staticPageGenerationTimeout: 300,
   experimental: {
@@ -113,13 +113,43 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/admin/douban",
+        destination: "/admin/settings",
+        permanent: true,
+      },
+      {
         source: "/profile",
-        destination: "/archives",
+        destination: "/",
         permanent: true,
       },
       {
         source: "/archive",
-        destination: "/archives",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/archives",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/equipment",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/labs",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/admin/equipment",
+        destination: "/admin",
+        permanent: true,
+      },
+      {
+        source: "/admin/labs",
+        destination: "/admin",
         permanent: true,
       },
       {
@@ -159,6 +189,11 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/admin/moment/:id",
+        destination: "/admin/posts",
+        permanent: true,
+      },
+      {
+        source: "/admin/moments",
         destination: "/admin/posts",
         permanent: true,
       },

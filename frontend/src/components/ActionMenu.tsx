@@ -31,11 +31,11 @@ export default function ActionMenu({
   // 访客时只有赞/评论/分享，用稍大舒适尺寸
   const isFullMenu = !!(onPin || onEdit || onDelete);
   const itemCls = isFullMenu
-    ? "flex h-full items-center gap-1 whitespace-nowrap px-2.5 md:gap-1.5 md:px-3 text-[12px] md:text-[13px] font-medium hover:bg-white/15 active:bg-white/25 transition-colors cursor-pointer"
-    : "flex h-full items-center gap-1.5 md:gap-2 whitespace-nowrap px-3.5 md:px-4 text-[13px] md:text-[14px] font-medium hover:bg-white/15 active:bg-white/25 transition-colors cursor-pointer";
+    ? "flex h-full items-center gap-1.5 whitespace-nowrap px-2.5 md:gap-1.5 md:px-3 text-[12px] md:text-[13px] font-medium text-white/90 hover:text-white hover:bg-white/10 active:bg-white/20 active:scale-95 transition-all cursor-pointer"
+    : "flex h-full items-center gap-1.5 md:gap-2 whitespace-nowrap px-3 md:px-3.5 text-[12px] md:text-[13px] font-medium text-white/90 hover:text-white hover:bg-white/10 active:bg-white/20 active:scale-95 transition-all cursor-pointer";
   const iconCls = isFullMenu
-    ? "h-[14px] w-[14px] md:h-[15px] md:w-[15px]"
-    : "h-[16px] w-[16px] md:h-[17px] md:w-[17px]";
+    ? "h-3.5 w-3.5 md:h-[15px] md:w-[15px]"
+    : "h-3.5 w-3.5 md:h-4 md:w-4";
 
   useEffect(() => {
     if (!open) return;
@@ -58,29 +58,29 @@ export default function ActionMenu({
     };
   }, [open]);
 
-  const Divider = () => <div className="h-[20px] w-px bg-[#5c5c5c]" />;
+  const Divider = () => <div className="h-3.5 w-px bg-white/15" />;
 
   // 无任何可用操作时不显示按钮
   if (!onLike && !onComment && !onShare && !onPin && !onEdit && !onDelete) return null;
 
   return (
     <div className="relative" ref={containerRef}>
-      {/* 两个点按钮 — 微信朋友圈风格 */}
+      {/* 两个点操作胶囊按钮 */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="group relative flex h-[24px] w-[34px] items-center justify-center rounded-[5px] bg-wechat-bubble transition-all duration-150 hover:bg-wechat-hover active:scale-95 active:bg-wechat-border cursor-pointer before:absolute before:-inset-2 before:content-['']"
+        className="group relative flex h-6 w-8 items-center justify-center rounded-lg bg-neutral-100/90 dark:bg-neutral-800/80 border border-neutral-200/70 dark:border-neutral-700/60 shadow-2xs hover:shadow-xs hover:bg-neutral-200/70 dark:hover:bg-neutral-700/80 hover:border-neutral-300 dark:hover:border-neutral-600 active:scale-90 transition-all duration-150 cursor-pointer before:absolute before:-inset-2 before:content-['']"
         aria-label="操作"
       >
-        <span className="flex items-center gap-[4px] transition-transform duration-150 group-hover:scale-110">
-          <span className="h-[3.5px] w-[3.5px] rounded-full bg-wechat-nickname" />
-          <span className="h-[3.5px] w-[3.5px] rounded-full bg-wechat-nickname" />
+        <span className="flex items-center gap-1 transition-transform duration-150 group-hover:scale-110">
+          <span className="h-1 w-1 rounded-full bg-neutral-500 dark:bg-neutral-400 group-hover:bg-neutral-800 dark:group-hover:bg-white transition-colors" />
+          <span className="h-1 w-1 rounded-full bg-neutral-500 dark:bg-neutral-400 group-hover:bg-neutral-800 dark:group-hover:bg-white transition-colors" />
         </span>
       </button>
 
-      {/* 弹出菜单：赞 / 评论 / 分享 / 置顶 / 编辑 / 删除 — 微信朋友圈风格 */}
+      {/* 弹出菜单：赞 / 评论 / 分享 / 置顶 / 编辑 / 删除 — 高阶毛玻璃黑曜石胶囊 */}
       {open && (
-        <div className="absolute right-full top-1/2 z-20 mr-2 flex h-[38px] origin-right -translate-y-1/2 items-center overflow-hidden rounded-[8px] bg-[#4c4c4c] dark:bg-[#38383a] text-white shadow-xl animate-pop-in">
+        <div className="absolute right-full top-1/2 z-20 mr-2 flex h-8.5 sm:h-9 origin-right -translate-y-1/2 items-center overflow-hidden rounded-xl bg-neutral-900/95 dark:bg-neutral-850/95 text-white/90 backdrop-blur-md border border-white/10 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.4),0_4px_10px_-2px_rgba(0,0,0,0.2)] animate-pop-in">
           {(() => {
             const items: React.ReactNode[] = [];
             if (onLike) {

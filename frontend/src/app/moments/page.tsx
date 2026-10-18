@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Feather } from "lucide-react";
 import ChannelHeader from "@/components/channel/ChannelHeader";
 import PostList from "@/components/PostList";
 import Footer from "@/components/Footer";
@@ -52,7 +53,7 @@ export default async function MomentsPage({
       <ChannelHeader
         title={activeCategory ? `岁岁念 · #${activeCategory}` : "岁岁念"}
         subtitle="日记、故事小说、动漫心得、日常吐槽与生活光芒"
-        icon="🍃"
+        icon={<Feather className="h-4.5 w-4.5 text-emerald-500 dark:text-emerald-400" />}
         count={momentsData.total}
         maxWidth="max-w-[1400px] xl:max-w-[1560px] 2xl:max-w-[1680px]"
       />

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { FolderGit2 } from "lucide-react";
 import ChannelHeader from "@/components/channel/ChannelHeader";
 import PostList from "@/components/PostList";
 import Footer from "@/components/Footer";
@@ -35,7 +36,7 @@ export default async function ProjectsPage() {
       <ChannelHeader
         title="项目"
         subtitle="独立开发、代码作品与折腾成果"
-        icon="💻"
+        icon={<FolderGit2 className="h-4.5 w-4.5 text-emerald-500 dark:text-emerald-400" />}
         count={projectData.total}
         maxWidth="max-w-6xl xl:max-w-7xl"
       />

@@ -3,7 +3,7 @@
 import { memo, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Calendar, Eye, Clock, ArrowRight, Folder, Pin, Heart, MessageSquare } from "lucide-react";
+import { Eye, Clock, ArrowRight, Pin, Heart, MessageSquare, BookOpen } from "lucide-react";
 import type { Comment, Post } from "@/lib/types";
 import { formatExactDateTime } from "@/lib/time-format";
 import { resolveAvatarFromHash } from "@/lib/avatar";
@@ -202,8 +202,11 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
     await sharePost({
       title,
       url: articlePath,
-      typeLabel: "文章",
+      typeLabel: "深度长文",
       summary: excerpt,
+      cover: coverUrl,
+      author: authorName,
+      category: post.category,
     });
   };
 
@@ -219,9 +222,9 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
       >
         {/* Avatar */}
         <Link
-          href="/archives"
+          href="/"
           className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-[5px] bg-wechat-bubble md:h-11 md:w-11"
-          aria-label={`查看${authorName}的归档`}
+          aria-label={`查看${authorName}的主页`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -236,16 +239,18 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
           <h3 className="flex items-center justify-between gap-2 text-[15px] font-medium leading-5 text-wechat-nickname md:text-[16px]">
             <span className="truncate">{authorName}</span>
             <div className="flex items-center gap-1.5 shrink-0">
-              <span className="rounded-full bg-neutral-100 dark:bg-neutral-800/80 px-2 py-0.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+              <span className="rounded-md bg-neutral-100/80 dark:bg-neutral-800/80 px-2 py-0.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-300 border border-neutral-200/50 dark:border-neutral-700/50">
                 #{post.category || "文章"}
               </span>
               {(post.collection?.title || post.collectionTitle) && (
-                <span className="rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-800/60 px-2 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
-                  系列: {post.collection?.title || post.collectionTitle}
+                <span className="inline-flex items-center gap-1 rounded-md bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-900/50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:text-blue-300">
+                  <BookOpen className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+                  <span className="truncate max-w-[140px] sm:max-w-[200px]">专栏: {post.collection?.title || post.collectionTitle}</span>
                 </span>
               )}
               {pinned && (
-                <span className="shrink-0 rounded-[4px] bg-[#ececec] px-2 py-0.5 text-[11px] font-medium leading-tight text-[#9a9a9a] dark:bg-white/[0.1] dark:text-[#9a9a9a]">
+                <span className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 text-[11px] font-medium">
+                  <Pin className="h-2.5 w-2.5 rotate-45 text-amber-600 dark:text-amber-400" />
                   置顶
                 </span>
               )}
@@ -262,22 +267,22 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
           {/* 微信公众号长文卡片样式 */}
           <Link
             href={detailUrl}
-            className="group/card mt-2.5 flex w-full max-w-md sm:max-w-xl md:max-w-2xl items-stretch overflow-hidden rounded-xl border border-black/[0.06] bg-[#f7f7f7] transition-all duration-200 hover:bg-[#eaeaea] hover:border-black/10 dark:border-white/[0.08] dark:bg-[#25252b] dark:hover:bg-[#2e2e36] dark:hover:border-white/15"
+            className="group/card mt-2.5 flex w-full max-w-md sm:max-w-xl md:max-w-2xl items-stretch overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-800/80 bg-neutral-50/70 dark:bg-neutral-800/40 hover:bg-white dark:hover:bg-neutral-800/90 hover:border-neutral-300 dark:hover:border-neutral-700 shadow-2xs hover:shadow-sm active:scale-[0.99] transition-all duration-200"
           >
             {coverUrl && (
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden bg-black/5 dark:bg-white/5 sm:h-22 sm:w-22">
+              <div className="relative h-20 w-20 shrink-0 overflow-hidden bg-neutral-100 dark:bg-neutral-800 sm:h-22 sm:w-22">
                 <SafeImage
                   src={coverUrl}
                   alt={post.title || ""}
                   fill
                   sizes="88px"
-                  className="object-cover transition-transform duration-300 group-hover/card:scale-105"
+                  className="object-cover transition-transform duration-500 ease-out group-hover/card:scale-105"
                 />
               </div>
             )}
             <div className="flex min-w-0 flex-1 flex-col justify-between p-2.5 sm:p-3">
               <div>
-                <p className="line-clamp-1 text-sm font-semibold text-neutral-900 group-hover/card:text-emerald-700 dark:text-neutral-100 dark:group-hover/card:text-emerald-400">
+                <p className="line-clamp-1 text-sm font-semibold text-neutral-900 group-hover/card:text-blue-600 dark:text-neutral-100 dark:group-hover/card:text-blue-400 transition-colors">
                   {post.title || "无标题文章"}
                 </p>
                 <p className="mt-0.5 line-clamp-1 text-xs text-neutral-500 dark:text-neutral-400">
@@ -286,10 +291,10 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
               </div>
               <div className="mt-1.5 flex items-center justify-between text-[11px] text-neutral-400 dark:text-neutral-500">
                 <span className="inline-flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
+                  <Clock className="h-3 w-3 text-neutral-400" />
                   {readMinutes} 分钟阅读
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800/60 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300 group-hover/card:bg-emerald-100 dark:group-hover/card:bg-emerald-900/80 transition-colors">
+                <span className="inline-flex items-center gap-1 font-medium text-neutral-600 dark:text-neutral-300 group-hover/card:text-blue-600 dark:group-hover/card:text-blue-400 transition-colors">
                   <span>阅读全文</span>
                   <ArrowRight className="h-3 w-3 group-hover/card:translate-x-0.5 transition-transform" />
                 </span>
@@ -352,93 +357,99 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
 
   return (
     <article
-      className="group relative overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/[0.08] bg-white dark:bg-neutral-900/70 p-5 sm:p-7 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.4)] transition-all duration-300 hover:border-black/15 dark:hover:border-white/20 hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_-8px_rgba(0,0,0,0.6)] hover:-translate-y-0.5"
+      className="group relative overflow-hidden rounded-2xl sm:rounded-3xl border border-neutral-200/70 dark:border-neutral-800/80 bg-white/90 dark:bg-neutral-900/80 backdrop-blur-md p-5 sm:p-7 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_8px_24px_-6px_rgba(0,0,0,0.04)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3),0_10px_28px_-6px_rgba(0,0,0,0.5)] transition-all duration-300 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.06),0_16px_36px_-8px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.5),0_20px_48px_-8px_rgba(0,0,0,0.7)] hover:-translate-y-1"
       style={typeof index === "number" ? { animationDelay: `${index * 60}ms` } : undefined}
     >
+      {/* 顶部微高光线 */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-neutral-300/40 dark:via-neutral-700/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
       <div className="flex flex-col sm:flex-row gap-5 sm:gap-6 items-start justify-between">
         {/* 主要文字内容区：桌面左侧 / 移动端在封面后 */}
         <div className="order-2 sm:order-1 min-w-0 flex-1 flex flex-col justify-between self-stretch">
           <div>
-            {/* 元信息：置顶、分类、原创徽章、发布日期、阅读时间 */}
-            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+            {/* 元信息：纯粹雅致的分类、专栏与时间排版，彻底清除AI药丸堆砌 */}
+            <div className="mb-3 flex flex-wrap items-center gap-2 sm:gap-2.5 text-xs">
               {post.pinned && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-rose-50 text-rose-600 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50 px-2 py-0.5 text-[11px] font-medium">
-                  <Pin className="h-3 w-3" />
-                  置顶
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 text-[11px] font-medium tracking-wide">
+                  <Pin className="h-2.5 w-2.5 rotate-45 text-amber-600 dark:text-amber-400" />
+                  <span>置顶</span>
                 </span>
               )}
 
               {post.category && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-neutral-100 dark:bg-neutral-800 px-2.5 py-0.5 font-medium text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700/60">
-                  <Folder className="h-3 w-3 text-neutral-500 dark:text-neutral-400" />
-                  {post.category}
+                <span className="inline-flex items-center rounded-md bg-neutral-100/90 dark:bg-neutral-800/90 px-2.5 py-0.5 text-[11px] font-medium text-neutral-700 dark:text-neutral-300 border border-neutral-200/50 dark:border-neutral-700/50 hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors">
+                  #{post.category}
                 </span>
               )}
 
               {(post.collection?.title || post.collectionTitle) && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200/70 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60 px-2.5 py-0.5 font-medium text-[11px]">
-                  📚 系列: {post.collection?.title || post.collectionTitle}
-                </span>
-              )}
-
-              <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium border ${typeBadge.className}`}>
-                {typeBadge.label}
-              </span>
-
-              {exactDateTime && (
-                <span
-                  className="inline-flex items-center gap-1 text-neutral-500 dark:text-neutral-400"
-                  title={post.createdAt}
+                <Link
+                  href={post.collection ? `/articles/${post.collection.shortId || post.collection.id}` : detailUrl}
+                  className="group/col inline-flex items-center gap-1 rounded-md bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/50 px-2.5 py-0.5 text-[11px] font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100/80 dark:hover:bg-blue-900/60 transition-colors"
+                  title="查看所属系列专栏"
                 >
-                  <Calendar className="h-3 w-3" />
-                  <time dateTime={post.createdAt}>{exactDateTime}</time>
-                </span>
+                  <BookOpen className="h-3 w-3 text-blue-500 dark:text-blue-400 group-hover/col:scale-110 transition-transform" />
+                  <span className="truncate max-w-[160px] sm:max-w-[220px]">
+                    专栏 · {post.collection?.title || post.collectionTitle}
+                  </span>
+                </Link>
               )}
 
-              <span className="inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500">
-                <Clock className="h-3 w-3" />
+              {/* 杂志感安静元数据 */}
+              <div className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-neutral-500 font-normal">
+                {post.articleType === "repost" ? (
+                  <span className="text-amber-600/90 dark:text-amber-400/90 font-medium">转载</span>
+                ) : post.articleType === "ai" ? (
+                  <span className="text-purple-600/90 dark:text-purple-400/90 font-medium">AI创作</span>
+                ) : (
+                  <span>原创</span>
+                )}
+                <span className="text-neutral-300 dark:text-neutral-700">·</span>
+                {exactDateTime && (
+                  <time dateTime={post.createdAt} title={post.createdAt}>
+                    {exactDateTime}
+                  </time>
+                )}
+                <span className="text-neutral-300 dark:text-neutral-700">·</span>
                 <span>约 {readMinutes} 分钟</span>
-              </span>
+              </div>
             </div>
 
             {/* 文章标题 */}
-            <h2 className="mb-2.5 text-lg sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 leading-snug break-words">
-              <Link
-                href={detailUrl}
-                className="transition-colors hover:text-emerald-600 dark:hover:text-emerald-400 line-clamp-2"
-              >
+            <h2 className="text-lg sm:text-[21px] font-bold tracking-tight text-neutral-900 dark:text-neutral-100 leading-[1.38] transition-colors duration-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+              <Link href={detailUrl} className="block line-clamp-2">
                 {post.title || "无标题文章"}
               </Link>
             </h2>
 
             {/* 摘要正文 */}
-            <p className="line-clamp-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400 break-words">
+            <p className="mt-2.5 text-sm leading-[1.68] text-neutral-600 dark:text-neutral-400 font-normal line-clamp-2 sm:line-clamp-3 text-pretty">
               {excerpt || "暂无摘要"}
             </p>
           </div>
 
-          {/* 底部元信息条：作者、阅读量、点赞数、评论数与阅读全文链接 */}
-          <div className="mt-5 pt-3.5 border-t border-black/[0.04] dark:border-white/[0.05] flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 gap-2 flex-wrap">
+          {/* 底部元信息条：作者、阅读量、点赞数、评论数与触感级阅读全文按钮 */}
+          <div className="mt-5 pt-3.5 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400 gap-2 flex-wrap">
             <div className="flex items-center gap-3.5 flex-wrap">
               <span className="font-medium text-neutral-700 dark:text-neutral-300">
                 {authorName}
               </span>
 
-              <span className="inline-flex items-center gap-1">
-                <Eye className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors">
+                <Eye className="h-3.5 w-3.5" />
                 <span>{post.viewCount || 0}</span>
               </span>
 
               {typeof post.likes?.length === "number" && post.likes.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500">
-                  <Heart className="h-3 w-3" />
+                <span className="inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500 hover:text-red-500 transition-colors">
+                  <Heart className="h-3.5 w-3.5" />
                   <span>{post.likes.length}</span>
                 </span>
               )}
 
               {typeof post.comments?.length === "number" && post.comments.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500">
-                  <MessageSquare className="h-3 w-3" />
+                <span className="inline-flex items-center gap-1 text-neutral-400 dark:text-neutral-500 hover:text-blue-500 transition-colors">
+                  <MessageSquare className="h-3.5 w-3.5" />
                   <span>{post.comments.length}</span>
                 </span>
               )}
@@ -446,10 +457,10 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
 
             <Link
               href={detailUrl}
-              className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100/90 dark:text-emerald-300 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs transition-all duration-150 group-hover:translate-x-0.5 shrink-0"
+              className="group/btn inline-flex items-center gap-1.5 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 bg-neutral-50/80 dark:bg-neutral-800/70 px-3.5 py-1.5 text-xs font-semibold text-neutral-700 dark:text-neutral-200 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-600 hover:bg-white dark:hover:bg-neutral-700 hover:text-neutral-900 dark:hover:text-white hover:shadow-xs active:scale-[0.97] transition-all duration-200 shrink-0"
             >
               <span>阅读全文</span>
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3.5 w-3.5 text-neutral-400 group-hover/btn:text-neutral-700 dark:group-hover/btn:text-neutral-200 group-hover/btn:translate-x-0.5 transition-all duration-200" />
             </Link>
           </div>
         </div>
@@ -460,14 +471,14 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
             href={detailUrl}
             tabIndex={-1}
             aria-hidden="true"
-            className="relative order-1 sm:order-2 w-full sm:w-44 md:w-52 aspect-[16/9] sm:aspect-[4/3] shrink-0 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-neutral-100 dark:bg-neutral-800"
+            className="relative order-1 sm:order-2 w-full sm:w-44 md:w-52 aspect-[16/9] sm:aspect-[4/3] shrink-0 overflow-hidden rounded-xl sm:rounded-2xl border border-black/[0.04] dark:border-white/[0.06] bg-neutral-100 dark:bg-neutral-800 shadow-2xs group-hover:shadow-sm transition-all duration-300"
           >
             <SafeImage
               src={coverUrl}
               alt={post.title || "文章封面"}
               fill
               sizes="(max-width: 640px) 100vw, 208px"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
             />
           </Link>
         )}

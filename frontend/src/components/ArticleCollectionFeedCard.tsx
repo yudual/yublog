@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookMarked, ChevronDown, ChevronUp, ArrowRight, Layers, Pin } from "lucide-react";
+import { BookMarked, BookOpen, ChevronDown, ChevronUp, ArrowRight, Layers, Pin } from "lucide-react";
 import type { Comment, Post } from "@/lib/types";
 import { formatExactDateTime } from "@/lib/time-format";
 import { resolveAvatarFromHash } from "@/lib/avatar";
@@ -188,6 +188,9 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
       url: collectionPath,
       typeLabel: "系列合辑",
       summary: post.excerpt,
+      cover: coverUrl,
+      author: authorName,
+      totalArticles: articles.length,
     });
   };
 
@@ -201,9 +204,9 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
     >
       {/* Avatar */}
       <Link
-        href="/archives"
+        href="/"
         className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-[5px] bg-wechat-bubble md:h-11 md:w-11"
-        aria-label={`查看${authorName}的归档`}
+        aria-label={`查看${authorName}的主页`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -219,13 +222,13 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
         <h3 className="flex items-center justify-between gap-2 text-[15px] font-medium leading-5 text-wechat-nickname md:text-[16px]">
           <span className="truncate">{authorName}</span>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border border-blue-200/80 dark:border-blue-800/60 px-2.5 py-0.5 text-[11px] font-medium text-blue-700 dark:text-blue-300 shadow-xs">
-              <Layers className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-              系列合辑 · {totalArticles} 篇
+            <span className="inline-flex items-center gap-1 rounded-md bg-blue-50/80 dark:bg-blue-950/50 border border-blue-200/60 dark:border-blue-900/50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:text-blue-300">
+              <BookOpen className="h-3 w-3 text-blue-500 dark:text-blue-400" />
+              <span>专栏合辑 · {totalArticles} 篇</span>
             </span>
             {pinned && (
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-[4px] bg-neutral-100 px-2 py-0.5 text-[11px] font-medium leading-tight text-neutral-500 dark:bg-white/[0.1] dark:text-neutral-400">
-                <Pin className="h-2.5 w-2.5 rotate-45" />
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 text-[11px] font-medium">
+                <Pin className="h-2.5 w-2.5 rotate-45 text-amber-600 dark:text-amber-400" />
                 置顶
               </span>
             )}
@@ -240,32 +243,32 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
         )}
 
         {/* 系列合辑聚合卡片 */}
-        <div className="mt-2.5 w-full overflow-hidden rounded-2xl border border-neutral-200/70 dark:border-neutral-800/80 bg-neutral-50 dark:bg-neutral-900/40 p-3.5 sm:p-4 shadow-xs transition-all duration-200 hover:shadow-md">
+        <div className="group/colbox relative mt-2.5 w-full overflow-hidden rounded-2xl border border-neutral-200/80 dark:border-neutral-800/90 bg-neutral-50/70 dark:bg-neutral-800/35 p-3.5 sm:p-4 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_6px_20px_-4px_rgba(0,0,0,0.03)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all duration-300 hover:border-neutral-300 dark:hover:border-neutral-700 hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.05)]">
           {/* 合辑头部 Banner (点击可直达合辑详情专栏) */}
           <Link
             href={`/articles/${post.shortId || post.id}`}
-            className="group/banner flex items-start gap-3 pb-3 border-b border-neutral-200/70 dark:border-neutral-800/80 hover:opacity-95 transition-opacity"
+            className="group/banner flex items-start gap-3 pb-3 border-b border-neutral-200/60 dark:border-neutral-800/80 hover:opacity-95 transition-opacity"
             title="点击查看完整合辑目录与专栏详情"
           >
             {coverUrl ? (
-              <div className="relative h-16 w-16 sm:h-18 sm:w-18 shrink-0 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 shadow-xs">
+              <div className="relative h-16 w-16 sm:h-18 sm:w-18 shrink-0 overflow-hidden rounded-xl border border-black/5 dark:border-white/10 shadow-2xs">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={coverUrl}
                   alt={post.title || ""}
-                  className="h-full w-full object-cover group-hover/banner:scale-102 transition-transform duration-300"
+                  className="h-full w-full object-cover group-hover/banner:scale-105 transition-transform duration-500 ease-out"
                 />
               </div>
             ) : (
-              <div className="flex h-16 w-16 sm:h-18 sm:w-18 shrink-0 items-center justify-center rounded-xl bg-blue-100/70 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300">
-                <BookMarked className="h-8 w-8" />
+              <div className="flex h-16 w-16 sm:h-18 sm:w-18 shrink-0 items-center justify-center rounded-xl bg-blue-50/80 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200/40 dark:border-blue-900/40">
+                <BookMarked className="h-7 w-7" />
               </div>
             )}
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium">
                 <span>专题精选专栏</span>
-                <span>·</span>
+                <span className="text-neutral-300 dark:text-neutral-700">·</span>
                 <span>共 {totalArticles} 篇连续更新</span>
               </div>
               <h4 className="mt-0.5 text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 leading-snug line-clamp-2 group-hover/banner:text-blue-600 dark:group-hover/banner:text-blue-400 transition-colors">
@@ -277,8 +280,8 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
             </div>
           </Link>
 
-          {/* 子文章章节列表 */}
-          <div className="mt-3 space-y-1.5">
+          {/* 子文章章节列表：纯净杂志目录排版，彻底清除重复蓝色药丸 */}
+          <div className="mt-3 space-y-1">
             {showArticles.map((article, idx) => {
               const articleUrl = `/articles/${article.shortId || article.id}`;
               const order = String(idx + 1).padStart(2, "0");
@@ -286,24 +289,24 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
                 <Link
                   key={article.id}
                   href={articleUrl}
-                  className="group/item flex items-center justify-between gap-2.5 rounded-xl px-3 py-2 bg-white/70 hover:bg-white dark:bg-neutral-800/40 dark:hover:bg-neutral-800/80 border border-blue-50/80 dark:border-neutral-700/30 transition-all duration-200 hover:border-blue-200 dark:hover:border-blue-800/50 hover:shadow-xs"
+                  className="group/item flex items-center justify-between gap-3 rounded-xl px-3 py-2 bg-white/70 hover:bg-white dark:bg-neutral-800/40 dark:hover:bg-neutral-800/80 border border-transparent hover:border-neutral-200/80 dark:hover:border-neutral-700/80 shadow-2xs hover:shadow-xs transition-all duration-200"
                 >
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-blue-100/80 text-[11px] font-bold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                    <span className="w-5 text-center font-mono text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors">
                       {order}
                     </span>
-                    <span className="truncate text-sm font-medium text-neutral-800 group-hover/item:text-blue-600 dark:text-neutral-200 dark:group-hover/item:text-blue-400 transition-colors">
+                    <span className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-200 group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors">
                       {article.title || "无标题文章"}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 text-xs text-neutral-400 dark:text-neutral-500">
                     {article.category && (
-                      <span className="hidden sm:inline-block rounded bg-neutral-100 dark:bg-neutral-700/50 px-1.5 py-0.5 text-[10px] text-neutral-600 dark:text-neutral-400">
-                        {article.category}
+                      <span className="hidden sm:inline-block rounded-md bg-neutral-100/80 dark:bg-neutral-700/50 px-1.5 py-0.5 text-[10px] text-neutral-500 dark:text-neutral-400">
+                        #{article.category}
                       </span>
                     )}
-                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-800/60 px-2.5 py-0.5 text-[11px] font-medium text-blue-700 dark:text-blue-300 transition-colors group-hover/item:bg-blue-100 dark:group-hover/item:bg-blue-900/80">
+                    <span className="inline-flex items-center gap-1 font-medium text-neutral-500 dark:text-neutral-400 group-hover/item:text-blue-600 dark:group-hover/item:text-blue-400 transition-colors text-[11px]">
                       <span>阅读</span>
                       <ArrowRight className="h-3 w-3 group-hover/item:translate-x-0.5 transition-transform" />
                     </span>
@@ -318,7 +321,7 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
             <button
               type="button"
               onClick={() => setExpanded(!expanded)}
-              className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors cursor-pointer"
+              className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-xl py-1.5 text-xs font-medium text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
             >
               {expanded ? (
                 <>
@@ -334,15 +337,15 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
             </button>
           )}
 
-          {/* 快捷跳转首篇阅读 */}
+          {/* 快捷跳转首篇阅读：雅致触感按钮 */}
           <div className="mt-3 pt-2.5 border-t border-neutral-200/60 dark:border-neutral-800/70 flex items-center justify-between text-xs text-neutral-500 dark:text-neutral-400">
             <span>支持按序连贯阅读</span>
             <Link
               href={firstArticleUrl}
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 dark:text-blue-300 dark:bg-blue-950/60 dark:hover:bg-blue-900/80 border border-blue-200/60 dark:border-blue-800/60 transition-colors"
+              className="group/first inline-flex items-center gap-1.5 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 bg-white dark:bg-neutral-800/80 px-3 py-1.5 text-xs font-semibold text-neutral-700 dark:text-neutral-200 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-xs active:scale-[0.97] transition-all"
             >
               <span>从第一篇开始阅读</span>
-              <ArrowRight className="h-3 w-3" />
+              <ArrowRight className="h-3 w-3 text-neutral-400 group-hover/first:text-neutral-700 dark:group-hover/first:text-neutral-200 group-hover/first:translate-x-0.5 transition-all" />
             </Link>
           </div>
         </div>

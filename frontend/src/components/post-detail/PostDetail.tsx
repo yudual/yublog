@@ -198,11 +198,14 @@ export default function PostDetail({ post }: PostDetailProps) {
         ? (plainText.length > 30 ? plainText.slice(0, 30) + "…" : plainText)
         : `${post.author?.nickname || "用户"} 的动态`);
 
+    const firstImg = post.cover || (post.images && post.images.length > 0 ? (typeof post.images[0] === "string" ? post.images[0] : post.images[0]?.src) : undefined);
     await sharePost({
       title,
       url: path,
-      typeLabel: isCollection ? "系列合辑" : "动态",
+      typeLabel: isCollection ? "系列合辑" : "动态随笔",
       summary: post.excerpt || plainText,
+      cover: firstImg,
+      author: post.author?.nickname || "Dual",
     });
   };
 
@@ -252,7 +255,7 @@ export default function PostDetail({ post }: PostDetailProps) {
     <article id={`post-${post.id}`} className="flex gap-3 px-4 py-4 sm:px-5 md:px-6 scroll-mt-16">
       {/* Avatar */}
       <Link
-        href="/archives"
+        href="/"
         className="relative block h-10 w-10 shrink-0 overflow-hidden rounded-[5px] bg-wechat-bubble md:h-11 md:w-11"
       >
         <Image

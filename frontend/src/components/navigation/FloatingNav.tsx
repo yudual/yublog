@@ -23,8 +23,6 @@ const NAV_ITEMS = [
   { label: "项目", href: "/projects" },
   { label: "岁岁念", href: "/moments" },
   { label: "关于", href: "/about" },
-  // 注意：/labs、/equipment 目录站目前无内容且未启用，刻意不放入导航；
-  // 待后台目录管理填充内容后再考虑上线入口。
 ];
 
 export default function FloatingNav() {

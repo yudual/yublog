@@ -58,10 +58,39 @@ export default function HeroSection({ owner, siteSettings, postsCount }: HeroSec
   }, [allSocialLinks, HERO_ALLOWED_PLATFORMS]);
 
   const [avatarSrc, setAvatarSrc] = useState(avatarUrl);
+  const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
     setAvatarSrc(avatarUrl);
   }, [avatarUrl]);
+
+  // 视差滚动与联动 (Parallax & Scroll-linked)
+  // 背景星核微温晕、巨幕 YU 水印与前景内容以差速优雅平移与渐隐，营造立体景深
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentY = window.scrollY;
+          if (currentY <= 1000) {
+            setScrollY(currentY);
+          }
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const scrollToMoments = () => {
     const el = document.getElementById("moments-section");
@@ -81,19 +110,43 @@ export default function HeroSection({ owner, siteSettings, postsCount }: HeroSec
     }
   };
 
+  // 差速位移与光学透明度插值
+  const glowParallaxY = scrollY * 0.12;
+  const glowOpacity = Math.max(0, 1 - scrollY / 650);
+
+  const watermarkParallaxY = scrollY * 0.18;
+  const watermarkOpacity = Math.max(0.15, 0.9 - (scrollY / 800) * 0.75);
+
+  const contentParallaxY = scrollY * 0.28;
+  const contentOpacity = Math.max(0, 1 - scrollY / 480);
+
   return (
     <section className="relative flex min-h-[70vh] sm:min-h-[74vh] lg:min-h-[78vh] w-full flex-col items-center justify-between overflow-hidden px-4 sm:px-8 pt-20 sm:pt-28 pb-10 transition-colors select-none">
-      {/* 极淡雅的中央星核微温晕 (Ethereal Core Glow) */}
+      {/* 极淡雅的中央星核微温晕 (Ethereal Core Glow - 差速视差微浮) */}
       <div
-        className="pointer-events-none absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[340px] w-[340px] sm:h-[480px] sm:w-[480px] rounded-full bg-gradient-to-tr from-amber-300/[0.10] via-rose-300/[0.07] to-indigo-300/[0.07] dark:from-amber-400/[0.12] dark:via-purple-500/[0.10] dark:to-cyan-400/[0.08] blur-[130px] animate-hero-glow"
+        className="pointer-events-none absolute top-1/3 left-1/2 h-[340px] w-[340px] sm:h-[480px] sm:w-[480px] rounded-full bg-gradient-to-tr from-amber-300/[0.10] via-rose-300/[0.07] to-indigo-300/[0.07] dark:from-amber-400/[0.12] dark:via-purple-500/[0.10] dark:to-cyan-400/[0.08] blur-[130px] animate-hero-glow transform-gpu will-change-transform"
+        style={{
+          transform: `translate3d(-50%, calc(-50% + ${glowParallaxY}px), 0)`,
+          opacity: glowOpacity,
+        }}
         aria-hidden="true"
       />
 
       {/* ================= 居中核心内容区 ================= */}
-      <div className="relative z-10 my-auto flex flex-col items-center text-center max-w-2xl mx-auto w-full pt-4">
-        {/* ============ 巨幕建筑级空灵字母浮水印 (严谨光学居中 + 发丝微轮廓，绝对稳固无晃动) ============ */}
+      <div
+        className="relative z-10 my-auto flex flex-col items-center text-center max-w-2xl mx-auto w-full pt-4 transform-gpu will-change-transform"
+        style={{
+          transform: `translate3d(0, ${contentParallaxY}px, 0)`,
+          opacity: contentOpacity,
+        }}
+      >
+        {/* ============ 巨幕建筑级空灵字母浮水印 (慢速视差浮动，绝对稳固) ============ */}
         <div
-          className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-0 select-none opacity-90 dark:opacity-85"
+          className="pointer-events-none absolute top-1/2 left-1/2 z-0 select-none transform-gpu will-change-transform"
+          style={{
+            transform: `translate3d(-50%, calc(-50% + ${watermarkParallaxY}px), 0)`,
+            opacity: watermarkOpacity,
+          }}
           aria-hidden="true"
         >
           <span className="block font-sans font-extrabold text-[160px] sm:text-[230px] md:text-[285px] leading-none bg-gradient-to-b from-neutral-900/[0.07] via-amber-500/[0.045] to-transparent dark:from-white/[0.09] dark:via-amber-400/[0.05] dark:to-transparent bg-clip-text text-transparent watermark-yu-text">

@@ -6,7 +6,6 @@ import { migrateFontFamily } from "./migrate-font-family";
 import { migrateDoubanCache } from "./migrate-douban-cache";
 import { migrateFooterHtml } from "./migrate-footer-html";
 import { migrateDecorationImage } from "./migrate-decoration-image";
-import { migrateCatalogItemFields } from "./migrate-catalog-item-fields";
 import { migrateR2MusicFields } from "./migrate-r2-music-fields";
 import { migrateRemoveAds } from "./migrate-remove-ads";
 import { migrateArticleCollections } from "./migrate-article-collections";
@@ -110,7 +109,6 @@ export async function initializeDatabase() {
   await migrateFontFamily();
   await migrateFooterHtml();
   await migrateDecorationImage();
-  await migrateCatalogItemFields();
   await migrateR2MusicFields();
   await migrateRemoveAds();
   await migrateArticleCollections();
