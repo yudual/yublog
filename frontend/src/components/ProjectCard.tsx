@@ -222,7 +222,7 @@ export default function ProjectCard({ post, index, featured = false, variant = "
     await sharePost({
       title: shareTitle,
       url: projectPath,
-      typeLabel: "项目作品",
+      typeLabel: "项目",
       summary: description,
       cover: firstImg,
       author: post.author?.nickname || "Dual",

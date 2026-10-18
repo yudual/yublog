@@ -1,8 +1,7 @@
 import { toast } from "./toast";
-import { useShareStore } from "./share-store";
 
 export interface ShareOptions {
-  title: string;
+  title?: string;
   url: string;
   typeLabel?: string; // 例如 "系列合辑", "文章", "项目", "动态"
   summary?: string;
@@ -12,7 +11,6 @@ export interface ShareOptions {
   category?: string;
   readingTime?: number;
   totalArticles?: number;
-  /** 仅直接复制链接至剪贴板，不展开分享海报弹窗 (默认 false) */
   copyOnly?: boolean;
 }
 
@@ -31,7 +29,7 @@ export function toFullAbsoluteUrl(url: string): string {
 }
 
 /**
- * 纯净写入剪贴板
+ * 纯净写入剪贴板（零弹窗、零打扰）
  */
 export async function copyCleanUrl(url: string, label = "链接"): Promise<boolean> {
   const fullUrl = toFullAbsoluteUrl(url);
@@ -63,7 +61,7 @@ export async function copyCleanUrl(url: string, label = "链接"): Promise<boole
   }
 
   if (copied) {
-    toast.success(`${label}已复制到剪贴板`);
+    toast.success(`${label}已复制`);
   } else if (typeof window !== "undefined") {
     window.prompt(`请复制${label}：`, fullUrl);
   }
@@ -72,42 +70,14 @@ export async function copyCleanUrl(url: string, label = "链接"): Promise<boole
 }
 
 /**
- * 统一健壮的高品质分享处理器
- * 默认呼出优雅的海报级多功能分享弹窗 (支持二维码/直链/Markdown/纯文本/系统原生分享)
+ * 纯粹、直接、丝滑的一键分享
+ * 直接将干净完整的绝对路径 URL 复制到剪贴板，并轻量 Toast 提示，零多余弹窗与 AI 模板感
  */
-export async function sharePost(options: ShareOptions): Promise<void> {
-  const {
-    title,
-    url,
-    typeLabel = "内容",
-    summary,
-    cover,
-    author,
-    date,
-    category,
-    readingTime,
-    totalArticles,
-    copyOnly = false,
-  } = options;
-
-  if (copyOnly) {
-    await copyCleanUrl(url, `${typeLabel}链接`);
-    return;
-  }
-
-  // 默认唤起全局高颜值 ShareModal
-  useShareStore.getState().openShare({
-    title,
-    url,
-    typeLabel,
-    summary,
-    cover,
-    author,
-    date,
-    category,
-    readingTime,
-    totalArticles,
-  });
+export async function sharePost(options: ShareOptions | string): Promise<boolean> {
+  const url = typeof options === "string" ? options : options.url;
+  const typeLabel = typeof options === "object" && options.typeLabel ? options.typeLabel : "";
+  const label = typeLabel ? `${typeLabel}链接` : "链接";
+  return await copyCleanUrl(url, label);
 }
 
 /**
@@ -138,5 +108,5 @@ export function extractCleanPostId(rawId: string): string {
 
   // 3. 截断到第一个非 URL 路径字符
   const sanitized = decoded.split(/[\s，。！？、；：“”‘’（）《》【】#?]/)[0];
-  return sanitized || decoded;
+  return sanitized.trim();
 }

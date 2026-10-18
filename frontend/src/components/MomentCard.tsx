@@ -257,7 +257,7 @@ function MomentCard({
     await sharePost({
       title,
       url: momentPath,
-      typeLabel: "动态随笔",
+      typeLabel: "动态",
       summary: plainText,
       cover: post.images && post.images.length > 0 ? (typeof post.images[0] === "string" ? post.images[0] : post.images[0]?.src) : undefined,
       author: post.author?.nickname || "Dual",

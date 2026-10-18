@@ -202,7 +202,7 @@ function ArticleFeedCard({ post, index, variant = "standalone" }: ArticleFeedCar
     await sharePost({
       title,
       url: articlePath,
-      typeLabel: "深度长文",
+      typeLabel: "文章",
       summary: excerpt,
       cover: coverUrl,
       author: authorName,

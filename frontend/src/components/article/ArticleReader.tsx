@@ -177,9 +177,9 @@ export default function ArticleReader({ post }: ArticleReaderProps) {
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : `/articles/${post.shortId || post.id}`;
     await sharePost({
-      title: post.title ? `《${post.title}》` : "深度长文",
+      title: post.title ? `《${post.title}》` : "文章",
       url,
-      typeLabel: "深度长文",
+      typeLabel: "文章",
       summary: post.excerpt,
       cover: coverUrl,
       author: authorName,

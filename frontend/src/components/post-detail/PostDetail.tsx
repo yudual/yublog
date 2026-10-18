@@ -202,7 +202,7 @@ export default function PostDetail({ post }: PostDetailProps) {
     await sharePost({
       title,
       url: path,
-      typeLabel: isCollection ? "系列合辑" : "动态随笔",
+      typeLabel: isCollection ? "合辑" : "动态",
       summary: post.excerpt || plainText,
       cover: firstImg,
       author: post.author?.nickname || "Dual",

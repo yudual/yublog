@@ -6,7 +6,6 @@ import ToastContainer from "@/components/ui/Toast";
 import EmojiFadeController from "@/components/EmojiFadeController";
 import FloatingNav from "@/components/navigation/FloatingNav";
 import GlobalMusicManager from "@/components/GlobalMusicManager";
-import ShareModal from "@/components/ui/ShareModal";
 import { getApiUrl } from "@/lib/api-fetch";
 import { toSafeHttpUrl, toSafeImageUrl } from "@/lib/web-url";
 
@@ -183,7 +182,6 @@ export default async function RootLayout({
           <ToastContainer />
           <GlobalMusicManager />
           <FloatingNav />
-          <ShareModal />
           {children}
           <EmojiFadeController />
         </ThemeProvider>

@@ -186,7 +186,7 @@ export default function ArticleCollectionFeedCard({ post, index }: ArticleCollec
     await sharePost({
       title,
       url: collectionPath,
-      typeLabel: "系列合辑",
+      typeLabel: "合辑",
       summary: post.excerpt,
       cover: coverUrl,
       author: authorName,
